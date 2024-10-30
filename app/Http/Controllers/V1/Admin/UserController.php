@@ -309,6 +309,10 @@ class UserController extends Controller
         $builder = User::orderBy($sort, $sortType);
         $this->filter($request, $builder);
         try {
+            $builder->each(function ($user){
+                $authService = new AuthService($user);
+                $authService->removeAllSession();
+            });
             $builder->update([
                 'banned' => 1
             ]);
@@ -331,6 +335,8 @@ class UserController extends Controller
         DB::beginTransaction();
         try {
             $builder->each(function ($user){
+                $authService = new AuthService($user);
+                $authService->removeAllSession();
                 Order::where('user_id', $user->id)->delete();
                 InviteCode::where('user_id', $user->id)->delete();
                 $tickets = Ticket::where('user_id', $user->id)->get();
@@ -358,9 +364,10 @@ class UserController extends Controller
         if (!$user) {
             abort(500, '用户不存在');
         }
-    
         DB::beginTransaction();
         try {
+            $authService = new AuthService($user);
+            $authService->removeAllSession();
             Order::where('user_id', $request->input('id'))->delete();
             User::where('invite_user_id', $request->input('id'))->update(['invite_user_id' => null]);
             InviteCode::where('user_id', $request->input('id'))->delete();
