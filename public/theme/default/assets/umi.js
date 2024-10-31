@@ -16000,7 +16000,7 @@
                 }, l.a.createElement("p", {
                     className: "text-muted w-75"
                 }, Object(m["formatMessage"])({
-                    id: "\u6211\u7684\u94b1\u5305"
+                    id: "\u6211\u7684\u94b1\u5305(\u4ec5\u6d88\u8d39)"
                 })), l.a.createElement("p", {
                     className: "display-4 text-black font-w300 mb-2"
                 }, void 0 !== t.balance ? (parseInt(t.balance) / 100).toFixed(2) : "--.--", l.a.createElement("span", {
@@ -16011,7 +16011,11 @@
                         cursor: "pointer"
                     }
                 }, Object(m["formatMessage"])({
-                    id: "\u8d26\u6237\u4f59\u989d(\u4ec5\u6d88\u8d39)"
+                    id: "\u81ea\u52a8\u7eed\u8d39"
+                }), l.a.createElement(i["a"], {
+                    loading: this.props.user.auto_renewal_loading,
+                    checked: t.auto_renewal,
+                    onChange: e=>this.update("auto_renewal", e ? 1 : 0)
                 })), l.a.createElement("div", {
                     className: "pt-3"
                 }, l.a.createElement(a["a"], {

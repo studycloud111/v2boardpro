@@ -754,3 +754,6 @@ CREATE TABLE `v2_giftcard` (
 ALTER TABLE `v2_giftcard`
     ADD `plan_id` int(11) NULL AFTER `value`,
     CHANGE `used_user_ids` `used_user_ids` varchar(16384) NULL AFTER `limit_use`;
+
+ALTER TABLE `v2_user`
+ADD `auto_renewal` tinyint(4) NOT NULL DEFAULT '0' AFTER `speed_limit`;

@@ -201,6 +201,7 @@ class UserController extends Controller
                 'last_login_at',
                 'created_at',
                 'banned',
+                'auto_renewal',
                 'remind_expire',
                 'remind_traffic',
                 'expired_at',
@@ -300,6 +301,7 @@ class UserController extends Controller
     public function update(UserUpdate $request)
     {
         $updateData = $request->only([
+            'auto_renewal',
             'remind_expire',
             'remind_traffic'
         ]);

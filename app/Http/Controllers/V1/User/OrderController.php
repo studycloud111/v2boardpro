@@ -15,14 +15,7 @@ use App\Services\PlanService;
 use App\Services\UserService;
 use App\Utils\Helper;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Library\BitpayX;
-use Library\Epay;
-use Library\MGate;
-use Omnipay\Omnipay;
-use Stripe\Source;
-use Stripe\Stripe;
 
 class OrderController extends Controller
 {
