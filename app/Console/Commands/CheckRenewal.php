@@ -3,7 +3,6 @@
 namespace App\Console\Commands;
 
 use App\Services\MailService;
-use App\Services\UserService;
 use App\Services\PlanService;
 use App\Services\OrderService;
 use Illuminate\Console\Command;
