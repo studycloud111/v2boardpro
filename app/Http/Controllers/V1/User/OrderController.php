@@ -163,7 +163,7 @@ class OrderController extends Controller
         $orderService->setVipDiscount($user);
         $orderService->setOrderType($user);
 
-        if ($user->balance && $order->total_amount > 0) {
+        if ($user->balance > 0 && $order->total_amount > 0) {
             $remainingBalance = $user->balance - $order->total_amount;
             $userService = new UserService();
             if ($remainingBalance > 0) {
@@ -179,7 +179,7 @@ class OrderController extends Controller
                     abort(500, __('Insufficient balance'));
                 }
                 $order->balance_amount = $user->balance;
-                $order->total_amount = $order->total_amount - $user->balance;
+                $order->total_amount -= $user->balance;
             }
         }
 
