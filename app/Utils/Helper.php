@@ -210,16 +210,6 @@ class Helper
             case 'grpc':
                 $config['path'] = $networkSettings['serviceName'] ?? null;
                 break;
-            
-            case 'quic':
-                $config['host'] = $networkSettings['security'] ?? null;
-                if (!empty($config['host'])) {
-                    if (isset($networkSettings['key'])) {
-                        $config['path'] = $networkSettings['key'];
-                    }
-                }
-                $config['type'] = $networkSettings['header']['type'] ?? 'none';
-                break;
 
             case 'kcp':
                 if (isset($networkSettings['seed'])) {
@@ -233,7 +223,7 @@ class Helper
                 $config['host'] = $networkSettings['host'] ?? null;
                 break;
             
-            case 'splithttp':
+            case 'xhttp':
                 $config['path'] = $networkSettings['path'] ?? null;
                 $config['host'] = $networkSettings['host'] ?? null;
                 break;
@@ -341,9 +331,6 @@ class Helper
             case 'grpc':
                 self::configureGrpcSettings($settings, $config);
                 break;
-            case 'quic':
-                self::configureQuicSettings($settings, $config);
-                break;
             case 'kcp':
                 self::configureKcpSettings($settings, $config);
                 break;
@@ -353,8 +340,8 @@ class Helper
             case 'httpupgrade':
                 self::configureHttpupgradeSettings($settings, $config);
                 break;
-            case 'splithttp':
-                self::configureSplithttpSettings($settings, $config);
+            case 'xhttp':
+                self::configureXhttpSettings($settings, $config);
                 break;
         }
     }
@@ -380,17 +367,6 @@ class Helper
         $config['serviceName'] = $settings['serviceName'] ?? '';
     }
 
-    public static function configureQuicSettings($settings, &$config)
-    {
-        $config['quicSecurity'] = $settings['security'] ?? 'none';
-        if ($config['quicSecurity'] !='none') {
-            if (isset($settings['key'])){
-                $config['key'] = $settings['key'];
-            }
-        }
-        $config['headerType'] = $settings['header']['type'] ?? 'none';
-    }
-
     public static function configureKcpSettings($settings, &$config)
     {
         $config['headerType'] = $settings['header']['type'] ?? 'none';
@@ -411,7 +387,7 @@ class Helper
         $config['host'] = $settings['host'] ?? '';
     }
 
-    public static function configureSplithttpSettings($settings, &$config)
+    public static function configureXhttpSettings($settings, &$config)
     {
         $config['path'] = $settings['path'] ?? '';
         $config['host'] = $settings['host'] ?? '';
