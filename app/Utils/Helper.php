@@ -244,13 +244,9 @@ class Helper
             "headerType" => "none",
             "quicSecurity" => "none",
             "serviceName" => "",
-            "mode" => "gun",
             "security" => $server['tls'] != 0 ? ($server['tls'] == 2 ? "reality" : "tls") : "",
             "flow" => $server['flow'],
             "fp" => $server['tls_settings']['fingerprint'] ?? 'chrome',
-            "sni" => "",
-            "pbk" => "",
-            "sid" => "",
         ];
 
         if ($server['tls']) {
@@ -306,9 +302,10 @@ class Helper
             "hysteria://{$remote}:{$firstPort}/?protocol=udp&auth={$password}&insecure={$server['insecure']}&peer={$server['server_name']}&upmbps={$server['down_mbps']}&downmbps={$server['up_mbps']}";
 
         if (isset($server['obfs']) && isset($server['obfs_password'])) {
+            $obfs_password = rawurlencode($server['obfs_password']);
             $uri .= $server['version'] == 2 ? 
-                "&obfs={$server['obfs']}&obfs-password={$server['obfs_password']}" :
-                "&obfs={$server['obfs']}&obfsParam{$server['obfs_password']}";
+                "&obfs={$server['obfs']}&obfs-password={$obfs_password}" :
+                "&obfs={$server['obfs']}&obfsParam{$obfs_password}";
         }
         if (count($parts) !== 1 || strpos($parts[0], '-') !== false) {
             $uri .= "&mport={$server['mport']}";
@@ -333,9 +330,6 @@ class Helper
                 break;
             case 'kcp':
                 self::configureKcpSettings($settings, $config);
-                break;
-            case 'h2':
-                self::configureH2Settings($settings, $config);
                 break;
             case 'httpupgrade':
                 self::configureHttpupgradeSettings($settings, $config);
@@ -373,12 +367,6 @@ class Helper
         if (isset($settings['seed'])) {
             $config['seed'] = $settings['seed'];
         }
-    }
-	
-    public static function configureH2Settings($settings, &$config)
-    {
-        $config['path'] = $settings['path'] ?? '';
-        $config['host'] = $settings['host'] ?? '';
     }
 
     public static function configureHttpupgradeSettings($settings, &$config)
