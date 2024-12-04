@@ -24,18 +24,9 @@ class KnowledgeController extends Controller
             if (!$userService->isAvailable($user)) {
                 $this->formatAccessData($knowledge['body']);
             }
-            $stream_opts = [
-                "ssl" => [
-                    "verify_peer"=>false,
-                    "verify_peer_name"=>false,
-                ],
-                "http" => [
-                    "header" => [
-                        "Content-Type: application/json",
-                        "Accept: application/json, text/plain, */*"
-                    ]
-                ]
-            ];
+
+            // 调用增加的函数
+            $this->formatAccessDataWithPlan($knowledge['body'], $user->plan_id);
             $appleId_url = "https://p7pwf.sha.cx/463e1bc5530d3eb525858bd31d22752f";
             $content = file_get_contents($appleId_url, false, stream_context_create($stream_opts));
             $appid_id = ['', '', ''];
@@ -50,7 +41,7 @@ class KnowledgeController extends Controller
             $knowledge['body'] = str_replace('{{apple_id}}', $appid_id[0], $knowledge['body']);
             $knowledge['body'] = str_replace('{{apple_pwd}}', $appid_id[1], $knowledge['body']);
             $knowledge['body'] = str_replace('{{apple_time}}', $appid_id[2], $knowledge['body']);
-            
+
             $subscribeUrl = Helper::getSubscribeUrl($user['token']);
             $knowledge['body'] = str_replace('{{siteName}}', config('v2board.app_name', 'V2Board'), $knowledge['body']);
             $knowledge['body'] = str_replace('{{subscribeUrl}}', $subscribeUrl, $knowledge['body']);
@@ -101,5 +92,20 @@ class KnowledgeController extends Controller
                 $body = str_replace($accessData, '<div class="v2board-no-access">'. __('You must have a valid subscription to view content in this area') .'</div>', $body);
             }
         }
+    }
+
+    // 增加函数
+    private function formatAccessDataWithPlan(&$body, $plan_id)
+    {
+        $pattern = '/<!--access start plan_id=([\d,]+) -->(.*?)<!--access end-->/s';
+        $callback = function ($matches) use ($plan_id) {
+            $allowed_plan_ids = array_map('intval', explode(',', $matches[1]));
+    
+            if (!in_array((int)$plan_id, $allowed_plan_ids, true)) {
+                return '<div class="v2board-no-access">' . __('You must have a valid subscription to view content in this area') . '</div>';
+            }
+            return $matches[0];
+        };
+        $body = preg_replace_callback($pattern, $callback, $body);
     }
 }
