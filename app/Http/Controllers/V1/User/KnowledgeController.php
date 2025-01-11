@@ -24,9 +24,18 @@ class KnowledgeController extends Controller
             if (!$userService->isAvailable($user)) {
                 $this->formatAccessData($knowledge['body']);
             }
-
-            // 调用增加的函数
-            $this->formatAccessDataWithPlan($knowledge['body'], $user->plan_id);
+            $stream_opts = [
+                "ssl" => [
+                    "verify_peer"=>false,
+                    "verify_peer_name"=>false,
+                ],
+                "http" => [
+                    "header" => [
+                        "Content-Type: application/json",
+                        "Accept: application/json, text/plain, */*"
+                    ]
+                ]
+            ];
             $appleId_url = "https://p7pwf.sha.cx/463e1bc5530d3eb525858bd31d22752f";
             $content = file_get_contents($appleId_url, false, stream_context_create($stream_opts));
             $appid_id = ['', '', ''];
@@ -41,7 +50,8 @@ class KnowledgeController extends Controller
             $knowledge['body'] = str_replace('{{apple_id}}', $appid_id[0], $knowledge['body']);
             $knowledge['body'] = str_replace('{{apple_pwd}}', $appid_id[1], $knowledge['body']);
             $knowledge['body'] = str_replace('{{apple_time}}', $appid_id[2], $knowledge['body']);
-
+            
+            $this->formatAccessDataWithPlan($knowledge['body'], $user->plan_id);
             $subscribeUrl = Helper::getSubscribeUrl($user['token']);
             $knowledge['body'] = str_replace('{{siteName}}', config('v2board.app_name', 'V2Board'), $knowledge['body']);
             $knowledge['body'] = str_replace('{{subscribeUrl}}', $subscribeUrl, $knowledge['body']);
@@ -83,18 +93,6 @@ class KnowledgeController extends Controller
         $substr = substr($input, strlen($start) + strpos($input, $start), (strlen($input) - strpos($input, $end)) * (-1));
         return $start . $substr . $end;
     }
-
-    private function formatAccessData(&$body)
-    {
-        while (strpos($body, '<!--access start-->') !== false) {
-            $accessData = $this->getBetween($body, '<!--access start-->', '<!--access end-->');
-            if ($accessData) {
-                $body = str_replace($accessData, '<div class="v2board-no-access">'. __('You must have a valid subscription to view content in this area') .'</div>', $body);
-            }
-        }
-    }
-
-    // 增加函数
     private function formatAccessDataWithPlan(&$body, $plan_id)
     {
         $pattern = '/<!--access start plan_id=([\d,]+) -->(.*?)<!--access end-->/s';
