@@ -2,6 +2,13 @@
 
 use App\Services\ThemeService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route; // 导入 Route
+
+// 添加健康检查路由
+Route::get('/health', function () {
+    return response()->json(['status' => 'OK'], 200);
+});
+
 
 /*
 |--------------------------------------------------------------------------
