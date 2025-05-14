@@ -284,6 +284,7 @@ class Helper
                 $config['serviceName'] = $server['network_settings']['serviceName'];
             }
             if($server['network'] === "ws") {
+                $config['fragment'] = '1,40-60,30-50';//加上分片参数
                 if(isset($server['network_settings']['path'])) {
                     $config['path'] = $server['network_settings']['path'];
                 }
