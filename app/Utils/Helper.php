@@ -164,11 +164,7 @@ class Helper
         $name = rawurlencode($server['name']);
         $str = str_replace(['+', '/', '='], ['-', '_', ''], base64_encode("{$cipher}:{$password}"));
         $add = self::formatHost($server['host']);
-        $uri = "ss://{$str}@{$add}:{$server['port']}";
-        if ($server['obfs'] == 'http') {
-            $uri .= "?plugin=obfs-local;obfs=http;obfs-host={$server['obfs-host']};path={$server['obfs-path']}";
-        }
-        return $uri."#{$name}\r\n";
+        return "ss://{$str}@{$add}:{$server['port']}#{$name}\r\n";
     }
 
     public static function buildVmessUri($uuid, $server)
@@ -209,7 +205,6 @@ class Helper
             case 'ws':
                 $config['path'] = $networkSettings['path'] ?? null;
                 $config['host'] = $networkSettings['headers']['Host'] ?? null;
-                isset($networkSettings['security']) && $config['scy'] = $networkSettings['security'];
                 break;
     
             case 'grpc':
@@ -231,8 +226,6 @@ class Helper
             case 'xhttp':
                 $config['path'] = $networkSettings['path'] ?? null;
                 $config['host'] = $networkSettings['host'] ?? null;
-                $config['mode'] = $networkSettings['mode'] ?? 'auto';
-                $config['extra'] = isset($networkSettings['extra']) ? json_encode($networkSettings['extra'], JSON_UNESCAPED_SLASHES) : null;
                 break;
         }
 
@@ -271,31 +264,52 @@ class Helper
     }
 
     public static function buildTrojanUri($password, $server)
-    {
-        $config = [
-            'allowInsecure' => $server['allow_insecure'],
-            'peer' => $server['server_name'],
-            'sni' => $server['server_name'],
-            'type'=> $server['network'],
-        ];
+{
+    $config = [
+        'allowInsecure' => $server['allow_insecure'],
+        'peer' => $server['server_name'],
+        'sni' => $server['server_name'],
+        'type'=> $server['network'],
+    ];
 
-        if(isset($server['network']) && in_array($server['network'], ["grpc", "ws"])){
-            if($server['network'] === "grpc" && isset($server['network_settings']['serviceName'])) {
-                $config['serviceName'] = $server['network_settings']['serviceName'];
+    if(isset($server['network']) && in_array($server['network'], ["grpc", "ws"])){
+        if($server['network'] === "grpc" && isset($server['network_settings']['serviceName'])) {
+            $config['serviceName'] = $server['network_settings']['serviceName'];
+        }
+        if($server['network'] === "ws") {
+            $config['fragment'] = '1,40-60,30-50';//加上分片参数
+            if(isset($server['network_settings']['path'])) {
+                $config['path'] = $server['network_settings']['path'];
             }
-            if($server['network'] === "ws") {
-                $config['fragment'] = '1,40-60,30-50';//加上分片参数
-                if(isset($server['network_settings']['path'])) {
-                    $config['path'] = $server['network_settings']['path'];
-                }
-                if(isset($server['network_settings']['headers']['Host'])) {
-                    $config['host'] = $server['network_settings']['headers']['Host'];
-                }
+            if(isset($server['network_settings']['headers']['Host'])) {
+                $config['host'] = $server['network_settings']['headers']['Host'];
+            }
+
+            // 处理以 null. 开头的域名
+            $serverName = $server['server_name'];
+            if (strpos($serverName, 'null.') === 0) {
+                $newServerName = self::generateRandomString() . substr($serverName, 4);
+                $config['peer'] = $newServerName;
+                $config['sni'] = $newServerName;
             }
         }
-        $query = http_build_query($config);
-        return "trojan://{$password}@" . self::formatHost($server['host']) . ":{$server['port']}?{$query}#". rawurlencode($server['name']) . "\r\n";
     }
+
+    $query = http_build_query($config);
+    return "trojan://{$password}@" . self::formatHost($server['host']) . ":{$server['port']}?{$query}#". rawurlencode($server['name']) . "\r\n";
+}
+
+private static function generateRandomString($minLength = 8, $maxLength = 20)
+{
+    $length = mt_rand($minLength, $maxLength);
+    $characters = '0123456789abcdefghijklmnopqrstuvwxyz';
+    $charactersLength = strlen($characters);
+    $randomString = '';
+    for ($i = 0; $i < $length; $i++) {
+        $randomString .= $characters[mt_rand(0, $charactersLength - 1)];
+    }
+    return $randomString;
+}
 
     public static function buildHysteriaUri($password, $server)
     {
@@ -319,25 +333,6 @@ class Helper
             $uri .= "&mport={$server['mport']}";
         }
         return "{$uri}#{$name}\r\n";
-    }
-
-    public static function buildTuicUri($password, $server)
-    {
-        $config = [
-            'sni' => $server['server_name'],
-            'alpn'=> 'h3',
-            'congestion_control' => $server['congestion_control'],
-            'allow_insecure' => $server['insecure'],
-            'disable_sni' => $server['disable_sni'],
-            'udp_relay_mode' => $server['udp_relay_mode'],
-        ];
-
-        $remote = self::formatHost($server['host']);
-        $port = $server['port'];
-        $name = self::encodeURIComponent($server['name']);
-
-        $query = http_build_query($config);
-        return "tuic://{$password}:{$password}@{$remote}:{$port}?{$query}#{$name}\r\n";
     }
 
     public static function configureNetworkSettings($server, &$config)
@@ -406,7 +401,5 @@ class Helper
     {
         $config['path'] = $settings['path'] ?? '';
         $config['host'] = $settings['host'] ?? '';
-        $config['mode'] = $settings['mode'] ?? 'auto';
-        $config['extra'] = isset($settings['extra']) ? json_encode($settings['extra'], JSON_UNESCAPED_SLASHES) : null;
     }
 }
