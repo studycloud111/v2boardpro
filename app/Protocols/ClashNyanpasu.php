@@ -52,10 +52,6 @@ class ClashNyanpasu
                 array_push($proxy, self::buildTrojan($user['uuid'], $item));
                 array_push($proxies, $item['name']);
             }
-            if ($item['type'] === 'tuic') {
-                array_push($proxy, self::buildTuic($user['uuid'], $item));
-                array_push($proxies, $item['name']);
-            }
             if ($item['type'] === 'hysteria') {
                 array_push($proxy, self::buildHysteria($user['uuid'], $item));
                 array_push($proxies, $item['name']);
@@ -115,21 +111,6 @@ class ClashNyanpasu
         $array['cipher'] = $server['cipher'];
         $array['password'] = $password;
         $array['udp'] = true;
-        if (isset($server['obfs']) && $server['obfs'] === 'http') {
-            $array['plugin'] = 'obfs';
-            $plugin_opts = [
-                'mode' => 'http'
-            ];
-            if (isset($server['obfs-host'])) {
-                $plugin_opts['host'] = $server['obfs-host'];
-            } else {
-                $plugin_opts['host'] = '';
-            }
-            if (isset($server['obfs-path'])) {
-                $plugin_opts['path'] = $server['obfs-path'];
-            }
-            $array['plugin-opts'] = $plugin_opts;
-        }
         return $array;
     }
 
@@ -246,57 +227,61 @@ class ClashNyanpasu
     }
 
     public static function buildTrojan($password, $server)
-    {
-        $array = [];
-        $array['name'] = $server['name'];
-        $array['type'] = 'trojan';
-        $array['server'] = $server['host'];
-        $array['port'] = $server['port'];
-        $array['password'] = $password;
-        $array['udp'] = true;
-        if(isset($server['network']) && in_array($server['network'], ["grpc", "ws"])){
-            $array['network'] = $server['network'];
-            // grpc配置
-            if($server['network'] === "grpc" && isset($server['network_settings']['serviceName'])) {
-                $array['grpc-opts']['grpc-service-name'] = $server['network_settings']['serviceName'];
-            }
-            // ws配置
-            if($server['network'] === "ws") {
-                if(isset($server['network_settings']['path'])) {
-                    $array['ws-opts']['path'] = $server['network_settings']['path'];
-                }
-                if(isset($server['network_settings']['headers']['Host'])){
-                    $array['ws-opts']['headers']['Host'] = $server['network_settings']['headers']['Host'];
-                }
-            }
-        };
-        if (!empty($server['server_name'])) $array['sni'] = $server['server_name'];
-        if (!empty($server['allow_insecure'])) $array['skip-cert-verify'] = ($server['allow_insecure'] ? true : false);
-        return $array;
-    }
-
-    public static function buildTuic($password, $server)
-    {
-        $array = [
-            'name' => $server['name'],
-            'type' => 'tuic',
-            'server' => $server['host'],
-            'port' => $server['port'],
-            'uuid' => $password,
-            'password' => $password,
-            'alpn' => ['h3'],
-            'disable-sni' => $server['disable_sni'] ? true : false,
-            'reduce-rtt' => $server['zero_rtt_handshake'] ? true : false,
-            'udp-relay-mode' => $server['udp_relay_mode'] ?? 'native',
-            'congestion-controller' => $server['congestion_control'] ?? 'cubic',
-            'skip-cert-verify' => $server['insecure'] ? true : false,
-        ];
-        if (isset($server['server_name'])) {
-            $array['sni'] = $server['server_name'];
+{
+    $array = [];
+    $array['name'] = $server['name'];
+    $array['type'] = 'trojan';
+    $array['server'] = $server['host'];
+    $array['port'] = $server['port'];
+    $array['password'] = $password;
+    $array['udp'] = true;
+    if (isset($server['network']) && in_array($server['network'], ["grpc", "ws"])) {
+        $array['network'] = $server['network'];
+        // grpc配置
+        if ($server['network'] === "grpc" && isset($server['network_settings']['serviceName'])) {
+            $array['grpc-opts']['grpc-service-name'] = $server['network_settings']['serviceName'];
         }
-
-        return $array;
+        // ws配置
+        if ($server['network'] === "ws") {
+            if (isset($server['network_settings']['path'])) {
+                $array['ws-opts']['path'] = $server['network_settings']['path'];
+            }
+            if (isset($server['network_settings']['headers']['Host'])) {
+                $host = $server['network_settings']['headers']['Host'];
+                // 替换Host中的null.前缀
+                if (strpos($host, 'null.') === 0) {
+                    $host = self::generateRandomString() . substr($host, 4);
+                }
+                $array['ws-opts']['headers']['Host'] = $host;
+            }
+        }
     }
+    // 处理sni字段
+    if (!empty($server['server_name'])) {
+        $sni = $server['server_name'];
+        // 仅在network为ws时替换null.前缀
+        if (isset($server['network']) && $server['network'] === 'ws' && strpos($sni, 'null.') === 0) {
+            $sni = self::generateRandomString() . substr($sni, 4);
+        }
+        $array['sni'] = $sni;
+    }
+    if (!empty($server['allow_insecure'])) {
+        $array['skip-cert-verify'] = (bool)$server['allow_insecure'];
+    }
+    return $array;
+}
+
+private static function generateRandomString()
+{
+    $length = random_int(4, 20);
+    $characters = '0123456789abcdefghijklmnopqrstuvwxyz-';
+    $charactersLength = strlen($characters);
+    $randomString = '';
+    for ($i = 0; $i < $length; $i++) {
+        $randomString .= $characters[random_int(0, $charactersLength - 1)];
+    }
+    return $randomString;
+}
 
     public static function buildHysteria($password, $server)
     {
