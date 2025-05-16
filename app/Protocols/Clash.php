@@ -110,16 +110,6 @@ class Clash
         $array['cipher'] = $server['cipher'];
         $array['password'] = $uuid;
         $array['udp'] = true;
-        if (isset($server['obfs']) && $server['obfs'] === 'http') {
-            $array['plugin'] = 'obfs';
-            $plugin_opts = [
-                'mode' => 'http'
-            ];
-            if (isset($server['obfs-host'])) {
-                $plugin_opts['host'] = $server['obfs-host'];
-            }
-            $array['plugin-opts'] = $plugin_opts;
-        }
         return $array;
     }
 
@@ -162,8 +152,6 @@ class Clash
                     $array['ws-opts']['path'] = $wsSettings['path'];
                 if (isset($wsSettings['headers']['Host']) && !empty($wsSettings['headers']['Host']))
                     $array['ws-opts']['headers'] = ['Host' => $wsSettings['headers']['Host']];
-                if (isset($wsSettings['security'])) 
-                    $array['cipher'] = $wsSettings['security'];
             }
         }
         if ($server['network'] === 'grpc') {
@@ -239,34 +227,61 @@ class Clash
 
 
     public static function buildTrojan($password, $server)
-    {
-        $array = [];
-        $array['name'] = $server['name'];
-        $array['type'] = 'trojan';
-        $array['server'] = $server['host'];
-        $array['port'] = $server['port'];
-        $array['password'] = $password;
-        $array['udp'] = true;
-        if(isset($server['network']) && in_array($server['network'], ["grpc", "ws"])){
-            $array['network'] = $server['network'];
-            // grpc配置
-            if($server['network'] === "grpc" && isset($server['network_settings']['serviceName'])) {
-                $array['grpc-opts']['grpc-service-name'] = $server['network_settings']['serviceName'];
+{
+    $array = [];
+    $array['name'] = $server['name'];
+    $array['type'] = 'trojan';
+    $array['server'] = $server['host'];
+    $array['port'] = $server['port'];
+    $array['password'] = $password;
+    $array['udp'] = true;
+    if (isset($server['network']) && in_array($server['network'], ["grpc", "ws"])) {
+        $array['network'] = $server['network'];
+        // grpc配置
+        if ($server['network'] === "grpc" && isset($server['network_settings']['serviceName'])) {
+            $array['grpc-opts']['grpc-service-name'] = $server['network_settings']['serviceName'];
+        }
+        // ws配置
+        if ($server['network'] === "ws") {
+            if (isset($server['network_settings']['path'])) {
+                $array['ws-opts']['path'] = $server['network_settings']['path'];
             }
-            // ws配置
-            if($server['network'] === "ws") {
-                if(isset($server['network_settings']['path'])) {
-                    $array['ws-opts']['path'] = $server['network_settings']['path'];
+            if (isset($server['network_settings']['headers']['Host'])) {
+                $host = $server['network_settings']['headers']['Host'];
+                // 替换Host中的null.前缀
+                if (strpos($host, 'null.') === 0) {
+                    $host = self::generateRandomString() . substr($host, 4);
                 }
-                if(isset($server['network_settings']['headers']['Host'])){
-                    $array['ws-opts']['headers']['Host'] = $server['network_settings']['headers']['Host'];
-                }
+                $array['ws-opts']['headers']['Host'] = $host;
             }
-        };
-        if (!empty($server['server_name'])) $array['sni'] = $server['server_name'];
-        if (!empty($server['allow_insecure'])) $array['skip-cert-verify'] = ($server['allow_insecure'] ? true : false);
-        return $array;
+        }
     }
+    // 处理sni字段
+    if (!empty($server['server_name'])) {
+        $sni = $server['server_name'];
+        // 仅在network为ws时替换null.前缀
+        if (isset($server['network']) && $server['network'] === 'ws' && strpos($sni, 'null.') === 0) {
+            $sni = self::generateRandomString() . substr($sni, 4);
+        }
+        $array['sni'] = $sni;
+    }
+    if (!empty($server['allow_insecure'])) {
+        $array['skip-cert-verify'] = (bool)$server['allow_insecure'];
+    }
+    return $array;
+}
+
+private static function generateRandomString()
+{
+    $length = random_int(4, 20);
+    $characters = '0123456789abcdefghijklmnopqrstuvwxyz-';
+    $charactersLength = strlen($characters);
+    $randomString = '';
+    for ($i = 0; $i < $length; $i++) {
+        $randomString .= $characters[random_int(0, $charactersLength - 1)];
+    }
+    return $randomString;
+}
 
     public static function buildHysteria($password, $server)
     {
