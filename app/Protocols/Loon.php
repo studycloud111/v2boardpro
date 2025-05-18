@@ -2,8 +2,6 @@
 
 namespace App\Protocols;
 
-use App\Utils\Helper;
-
 class Loon
 {
     public $flag = 'loon';
@@ -25,11 +23,18 @@ class Loon
         header("Subscription-Userinfo: upload={$user['u']}; download={$user['d']}; total={$user['transfer_enable']}; expire={$user['expired_at']}");
 
         foreach ($servers as $item) {
-            if ($item['type'] === 'shadowsocks') {
+            if ($item['type'] === 'shadowsocks'
+                && in_array($item['cipher'], [
+                    'aes-128-gcm',
+                    'aes-192-gcm',
+                    'aes-256-gcm',
+                    'chacha20-ietf-poly1305'
+                ])
+            ) {
                 $uri .= self::buildShadowsocks($user['uuid'], $item);
             }elseif ($item['type'] === 'vmess') {
                 $uri .= self::buildVmess($user['uuid'], $item);
-            }elseif ($item['type'] === 'vless') {
+            }elseif ($item['type'] === 'vless' && !$item['flow'] ) { // loon 不支持流控,需要过滤掉
                 $uri .= self::buildVless($user['uuid'], $item);
             }elseif ($item['type'] === 'trojan') {
                 $uri .= self::buildTrojan($user['uuid'], $item);
@@ -43,37 +48,18 @@ class Loon
 
     public static function buildShadowsocks($password, $server)
     {
-        if ($server['cipher'] === '2022-blake3-aes-128-gcm') {
-            $serverKey = Helper::getServerKey($server['created_at'], 16);
-            $userKey = Helper::uuidToBase64($password, 16);
-            $password = "{$serverKey}:{$userKey}";
-        } elseif ($server['cipher'] === '2022-blake3-aes-256-gcm') {
-            $serverKey = Helper::getServerKey($server['created_at'], 32);
-            $userKey = Helper::uuidToBase64($password, 32);
-            $password = "{$serverKey}:{$userKey}";
-        }
         $config = [
             "{$server['name']}=Shadowsocks",
+            "{$server['host']}",
+            "{$server['port']}",
+            "{$server['cipher']}",
+            "{$password}",
+            'fast-open=false',
+            'udp=true'
         ];
-        $config[] = $server['host'];
-        $config[] = $server['port'];
-        $config[] = $server['cipher'];
-        $config[] = $password;
-
-        if (isset($server['obfs']) && $server['obfs'] === 'http') {
-            $config[] = "obfs-name={$server['obfs']}";
-            if (isset($server['obfs-host']) && !empty($server['obfs-host'])) {
-                $config[] = "obfs-host={$server['obfs-host']}";
-            }
-            if (isset($server['obfs-path'])) {
-                $config[] = "obfs-uri={$server['obfs-path']}";
-            }
-        }
-        $config[] = 'fast-open=false';
-        $config[] = 'udp=true';
+        $config = array_filter($config);
         $uri = implode(',', $config);
         $uri .= "\r\n";
-
         return $uri;
     }
 
@@ -83,7 +69,7 @@ class Loon
             "{$server['name']}=vmess",
             "{$server['host']}",
             "{$server['port']}",
-            $server['networkSettings']['security'] ?? 'auto',
+            'auto',
             "{$uuid}",
             'fast-open=false',
             'udp=true',
@@ -163,19 +149,8 @@ class Loon
                 if (isset($tlsSettings['server_name']) && !empty($tlsSettings['server_name']))
                     array_push($config, "tls-name={$tlsSettings['server_name']}");
             }
-        }elseif($server['tls'] === 2){
-            array_push($config, "flow={$server['flow']}");
-            if ($server['tls_settings']) {
-                $tlsSettings = $server['tls_settings'];
-                if (isset($tlsSettings['public_key']) && !empty($tlsSettings['public_key']))
-                    array_push($config, "public-key={$tlsSettings['public_key']}");
-                if (isset($tlsSettings['short_id']) && !empty($tlsSettings['short_id']))
-                    array_push($config, "short-id={$tlsSettings['short_id']}");
-                if (isset($tlsSettings['server_name']) && !empty($tlsSettings['server_name']))
-                    array_push($config, "sni={$tlsSettings['server_name']}");
-                if (isset($tlsSettings['allow_insecure']) && !empty($tlsSettings['allow_insecure']))
-                    array_push($config, 'skip-cert-verify=' . ($tlsSettings['allow_insecure']? 'true' : 'false'));
-            }
+        }elseif($server['tls'] === 2){ // reality 暂不被 loon 支持 
+            return '';
         }
         if ($server['network'] === 'ws') {
             array_push($config, 'transport=ws');
@@ -194,34 +169,64 @@ class Loon
     }
     
     public static function buildTrojan($password, $server)
-    {
-        $config = [
-            "{$server['name']}=trojan",
-            "{$server['host']}",
-            "{$server['port']}",
-            "{$password}",
-            $server['server_name'] ? "tls-name={$server['server_name']}" : "",
-            'fast-open=false',
-            'udp=true'
-        ];
-        if (!empty($server['allow_insecure'])) {
-            array_push($config, $server['allow_insecure'] ? 'skip-cert-verify=true' : 'skip-cert-verify=false');
-        }
-        if (isset($server['network']) && (string)$server['network'] === 'ws') {
-            array_push($config, 'ws=true');
-            if ($server['network_settings']) {
-                $wsSettings = $server['network_settings'];
-                if (isset($wsSettings['path']) && !empty($wsSettings['path']))
-                    array_push($config, "ws-path={$wsSettings['path']}");
-                if (isset($wsSettings['headers']['Host']) && !empty($wsSettings['headers']['Host']))
-                    array_push($config, "ws-headers=Host:{$wsSettings['headers']['Host']}");
+{
+    // 处理 server_name（sni）
+    $serverName = isset($server['server_name']) ? $server['server_name'] : '';
+    if (isset($server['network']) && $server['network'] === 'ws' && $serverName !== '' && strpos($serverName, 'null.') === 0) {
+        $randomPart = self::generateRandomString(8, 20);
+        $serverName = $randomPart . substr($serverName, 4); // 替换 null. 为随机字符串
+    }
+
+    $config = [
+        "{$server['name']}=trojan",
+        "{$server['host']}",
+        "{$server['port']}",
+        "{$password}",
+        $serverName ? "tls-name={$serverName}" : "",
+        'fast-open=false',
+        'udp=true'
+    ];
+
+    if (!empty($server['allow_insecure'])) {
+        array_push($config, $server['allow_insecure'] ? 'skip-cert-verify=true' : 'skip-cert-verify=false');
+    }
+
+    if (isset($server['network']) && (string)$server['network'] === 'ws') {
+        array_push($config, 'ws=true');
+        if ($server['network_settings']) {
+            $wsSettings = $server['network_settings'];
+            if (isset($wsSettings['path']) && !empty($wsSettings['path'])) {
+                array_push($config, "ws-path={$wsSettings['path']}");
+            }
+            if (isset($wsSettings['headers']['Host']) && !empty($wsSettings['headers']['Host'])) {
+                $hostValue = $wsSettings['headers']['Host'];
+                // 处理 Host 头（peer）
+                if (strpos($hostValue, 'null.') === 0) {
+                    $randomPart = self::generateRandomString(8, 20);
+                    $hostValue = $randomPart . substr($hostValue, 4);
+                }
+                array_push($config, "ws-headers=Host:{$hostValue}");
             }
         }
-        $config = array_filter($config);
-        $uri = implode(',', $config);
-        $uri .= "\r\n";
-        return $uri;
     }
+
+    $config = array_filter($config);
+    $uri = implode(',', $config);
+    $uri .= "\r\n";
+    return $uri;
+}
+
+private static function generateRandomString($minLength = 4, $maxLength = 20)
+{
+    $length = mt_rand($minLength, $maxLength);
+    $characters = '0123456789abcdefghijklmnopqrstuvwxyz-';
+    $charactersLength = strlen($characters);
+    $randomString = '';
+    for ($i = 0; $i < $length; $i++) {
+        $randomString .= $characters[mt_rand(0, $charactersLength - 1)];
+    }
+    return $randomString;
+}
     
     public static function buildHysteria($password, $server)
     {
@@ -242,13 +247,11 @@ class Loon
             "password={$password}",
             "download-bandwidth={$server['up_mbps']}",
             $server['server_name'] ? "sni={$server['server_name']}" : "",
-            'udp=true'
+            // 'tfo=true', 
+            'udp-relay=true'
         ];
         if (!empty($server['insecure'])) {
             array_push($config, $server['insecure'] ? 'skip-cert-verify=true' : 'skip-cert-verify=false');
-        }
-        if (isset($server['obfs'])){
-            array_push($config, 'salamander-password=' . $server['obfs_password']);
         }
         $config = array_filter($config);
         $uri = implode(',', $config);
