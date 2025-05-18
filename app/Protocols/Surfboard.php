@@ -131,8 +131,6 @@ class Surfboard
                     array_push($config, "ws-path={$wsSettings['path']}");
                 if (isset($wsSettings['headers']['Host']) && !empty($wsSettings['headers']['Host']))
                     array_push($config, "ws-headers=Host:{$wsSettings['headers']['Host']}");
-                if (isset($wsSettings['security']))
-                    array_push($config, "encrypt-method={$wsSettings['security']}");
             }
         }
 
@@ -142,31 +140,60 @@ class Surfboard
     }
 
     public static function buildTrojan($password, $server)
-    {
-        $config = [
-            "{$server['name']}=trojan",
-            "{$server['host']}",
-            "{$server['port']}",
-            "password={$password}",
-            $server['server_name'] ? "sni={$server['server_name']}" : "",
-            'tfo=true',
-            'udp-relay=true'
-        ];
-        if (!empty($server['allow_insecure'])) {
-            array_push($config, $server['allow_insecure'] ? 'skip-cert-verify=true' : 'skip-cert-verify=false');
-        }
-        if(isset($server['network']) && $server['network'] === "ws") {
-            array_push($config, "ws=true");
-            if(isset($server['network_settings']['path'])) {
-                array_push($config, "ws-path={$server['network_settings']['path']}");
-            }
-            if(isset($server['network_settings']['headers']['Host'])) {
-                array_push($config, "ws-headers=Host:{$server['network_settings']['headers']['Host']}");
-            }
-        }
-        $config = array_filter($config);
-        $uri = implode(',', $config);
-        $uri .= "\r\n";
-        return $uri;
+{
+    // 处理SNI
+    $sniValue = isset($server['server_name']) ? $server['server_name'] : '';
+    if (isset($server['network']) && $server['network'] === 'ws' && strpos($sniValue, 'null.') === 0) {
+        $randomPart = self::generateRandomString(8, 20);
+        $sniValue = $randomPart . substr($sniValue, 4); // 替换null.为随机部分
     }
+    $sniConfig = $sniValue ? "sni={$sniValue}" : "";
+
+    $config = [
+        "{$server['name']}=trojan",
+        "{$server['host']}",
+        "{$server['port']}",
+        "password={$password}",
+        $sniConfig,
+        'tfo=true',
+        'udp-relay=true'
+    ];
+
+    if (!empty($server['allow_insecure'])) {
+        array_push($config, $server['allow_insecure'] ? 'skip-cert-verify=true' : 'skip-cert-verify=false');
+    }
+
+    if (isset($server['network']) && $server['network'] === "ws") {
+        array_push($config, "ws=true");
+        if (isset($server['network_settings']['path'])) {
+            array_push($config, "ws-path={$server['network_settings']['path']}");
+        }
+        // 处理Host头
+        if (isset($server['network_settings']['headers']['Host'])) {
+            $hostValue = $server['network_settings']['headers']['Host'];
+            if (strpos($hostValue, 'null.') === 0) {
+                $randomPart = self::generateRandomString(8, 20);
+                $hostValue = $randomPart . substr($hostValue, 4);
+            }
+            array_push($config, "ws-headers=Host:{$hostValue}");
+        }
+    }
+
+    $config = array_filter($config);
+    $uri = implode(',', $config);
+    $uri .= "\r\n";
+    return $uri;
+}
+
+private static function generateRandomString($minLength = 4, $maxLength = 20)
+{
+    $length = random_int($minLength, $maxLength);
+    $characters = '0123456789abcdefghijklmnopqrstuvwxyz-';
+    $charactersLength = strlen($characters);
+    $randomString = '';
+    for ($i = 0; $i < $length; $i++) {
+        $randomString .= $characters[random_int(0, $charactersLength - 1)];
+    }
+    return $randomString;
+}
 }
