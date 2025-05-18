@@ -28,7 +28,14 @@ class Surge
         $proxyGroup = '';
 
         foreach ($servers as $item) {
-            if ($item['type'] === 'shadowsocks') {
+            if ($item['type'] === 'shadowsocks'
+                && in_array($item['cipher'], [
+                    'aes-128-gcm',
+                    'aes-192-gcm',
+                    'aes-256-gcm',
+                    'chacha20-ietf-poly1305'
+                ])
+            ) {
                 // [Proxy]
                 $proxies .= self::buildShadowsocks($user['uuid'], $item);
                 // [Proxy Group]
@@ -79,39 +86,21 @@ class Surge
         return $config;
     }
 
+
     public static function buildShadowsocks($password, $server)
     {
-        if ($server['cipher'] === '2022-blake3-aes-128-gcm') {
-            $serverKey = Helper::getServerKey($server['created_at'], 16);
-            $userKey = Helper::uuidToBase64($password, 16);
-            $password = "{$serverKey}:{$userKey}";
-        } elseif ($server['cipher'] === '2022-blake3-aes-256-gcm') {
-            $serverKey = Helper::getServerKey($server['created_at'], 32);
-            $userKey = Helper::uuidToBase64($password, 32);
-            $password = "{$serverKey}:{$userKey}";
-        }
         $config = [
             "{$server['name']}=ss",
+            "{$server['host']}",
+            "{$server['port']}",
+            "encrypt-method={$server['cipher']}",
+            "password={$password}",
+            'tfo=true',
+            'udp-relay=true'
         ];
-        $config[] = $server['host'];
-        $config[] = $server['port'];
-        $config[] = "encrypt-method={$server['cipher']}";
-        $config[] = "password={$password}";
-
-        if (isset($server['obfs']) && $server['obfs'] === 'http') {
-            $config[] = "obfs={$server['obfs']}";
-            if (isset($server['obfs-host']) && !empty($server['obfs-host'])) {
-                $config[] = "obfs-host={$server['obfs-host']}";
-            }
-            if (isset($server['obfs-path'])) {
-                $config[] = "obfs-uri={$server['obfs-path']}";
-            }
-        }
-        $config[] = 'fast-open=false';
-        $config[] = 'udp=true';
+        $config = array_filter($config);
         $uri = implode(',', $config);
         $uri .= "\r\n";
-
         return $uri;
     }
 
@@ -145,8 +134,6 @@ class Surge
                     array_push($config, "ws-path={$wsSettings['path']}");
                 if (isset($wsSettings['headers']['Host']) && !empty($wsSettings['headers']['Host']))
                     array_push($config, "ws-headers=Host:{$wsSettings['headers']['Host']}");
-                if (isset($wsSettings['security'])) 
-                    array_push($config, "encrypt-method={$wsSettings['security']}");
             }
         }
 
@@ -156,34 +143,74 @@ class Surge
     }
 
     public static function buildTrojan($password, $server)
-    {
-        $config = [
-            "{$server['name']}=trojan",
-            "{$server['host']}",
-            "{$server['port']}",
-            "password={$password}",
-            $server['server_name'] ? "sni={$server['server_name']}" : "",
-            'tfo=true',
-            'udp-relay=true'
-        ];
-        if (!empty($server['allow_insecure'])) {
-            array_push($config, $server['allow_insecure'] ? 'skip-cert-verify=true' : 'skip-cert-verify=false');
+{
+    // 生成随机字符串的辅助函数
+    $generateRandomString = function ($minLength, $maxLength) {
+        $length = mt_rand($minLength, $maxLength);
+        $characters = '0123456789abcdefghijklmnopqrstuvwxyz-';
+        $randomString = '';
+        for ($i = 0; $i < $length; $i++) {
+            $randomString .= $characters[mt_rand(0, strlen($characters) - 1)];
         }
-        if (isset($server['network']) && (string)$server['network'] === 'ws') {
-            array_push($config, 'ws=true');
-            if ($server['network_settings']) {
-                $wsSettings = $server['network_settings'];
-                if (isset($wsSettings['path']) && !empty($wsSettings['path']))
-                    array_push($config, "ws-path={$wsSettings['path']}");
-                if (isset($wsSettings['headers']['Host']) && !empty($wsSettings['headers']['Host']))
-                    array_push($config, "ws-headers=Host:{$wsSettings['headers']['Host']}");
+        return $randomString;
+    };
+
+    // 处理 server_name 和 Host 头的 null. 前缀替换
+    if (isset($server['network']) && (string)$server['network'] === 'ws') {
+        // 处理 sni (server_name)
+        if (!empty($server['server_name'])) {
+            $parts = explode('.', $server['server_name'], 2);
+            if ($parts[0] === 'null' && count($parts) > 1) {
+                $randomPart = $generateRandomString(4, 20);
+                $server['server_name'] = $randomPart . '.' . $parts[1];
             }
         }
-        $config = array_filter($config);
-        $uri = implode(',', $config);
-        $uri .= "\r\n";
-        return $uri;
+
+        // 处理 ws Host 头
+        if (isset($server['network_settings']['headers']['Host']) && !empty($server['network_settings']['headers']['Host'])) {
+            $hostParts = explode('.', $server['network_settings']['headers']['Host'], 2);
+            if ($hostParts[0] === 'null' && count($hostParts) > 1) {
+                $randomPart = $generateRandomString(8, 20);
+                $server['network_settings']['headers']['Host'] = $randomPart . '.' . $hostParts[1];
+            }
+        }
     }
+
+    // 构建基础配置
+    $config = [
+        "{$server['name']}=trojan",
+        "{$server['host']}",
+        "{$server['port']}",
+        "password={$password}",
+        !empty($server['server_name']) ? "sni={$server['server_name']}" : "",
+        'tfo=true',
+        'udp-relay=true'
+    ];
+
+    // 处理不安全证书选项
+    if (!empty($server['allow_insecure'])) {
+        array_push($config, $server['allow_insecure'] ? 'skip-cert-verify=true' : 'skip-cert-verify=false');
+    }
+
+    // 处理 WebSocket 配置
+    if (isset($server['network']) && (string)$server['network'] === 'ws') {
+        array_push($config, 'ws=true');
+        if (!empty($server['network_settings'])) {
+            $wsSettings = $server['network_settings'];
+            if (!empty($wsSettings['path'])) {
+                array_push($config, "ws-path={$wsSettings['path']}");
+            }
+            if (!empty($wsSettings['headers']['Host'])) {
+                array_push($config, "ws-headers=Host:{$wsSettings['headers']['Host']}");
+            }
+        }
+    }
+
+    // 过滤空值并生成 URI
+    $config = array_filter($config);
+    $uri = implode(',', $config) . "\r\n";
+    return $uri;
+}
 
     //参考文档: https://manual.nssurge.com/policy/proxy.html
     public static function buildHysteria($password, $server)
