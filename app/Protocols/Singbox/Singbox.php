@@ -47,31 +47,25 @@ class Singbox
         $proxies = [];
     
         foreach ($this->servers as $item) {
-            switch ($item['type']) {
-                case 'shadowsocks':
-                    $ssConfig = $this->buildShadowsocks($this->user['uuid'], $item);
-                    $proxies[] = $ssConfig;
-                    break;
-                case 'trojan':
-                    $trojanConfig = $this->buildTrojan($this->user['uuid'], $item);
-                    $proxies[] = $trojanConfig;
-                    break;
-                case 'vmess':
-                    $vmessConfig = $this->buildVmess($this->user['uuid'], $item);
-                    $proxies[] = $vmessConfig;
-                    break;
-                case 'vless':
-                    $vlessConfig = $this->buildVless($this->user['uuid'], $item);
-                    $proxies[] = $vlessConfig;
-                    break;
-                case 'tuic':
-                    $tuicConfig = $this->buildTuic($this->user['uuid'], $item);
-                    $proxies[] = $tuicConfig;
-                    break;
-                case 'hysteria':
-                    $hysteriaConfig = $this->buildHysteria($this->user['uuid'], $item, $this->user);
-                    $proxies[] = $hysteriaConfig;
-                    break;
+            if ($item['type'] === 'shadowsocks') {
+                $ssConfig = $this->buildShadowsocks($this->user['uuid'], $item);
+                $proxies[] = $ssConfig;
+            }
+            if ($item['type'] === 'trojan') {
+                $trojanConfig = $this->buildTrojan($this->user['uuid'], $item);
+                $proxies[] = $trojanConfig;
+            }
+            if ($item['type'] === 'vmess') {
+                $vmessConfig = $this->buildVmess($this->user['uuid'], $item);
+                $proxies[] = $vmessConfig;
+            }
+            if ($item['type'] === 'vless') {
+                $vlessConfig = $this->buildVless($this->user['uuid'], $item);
+                $proxies[] = $vlessConfig;
+            }
+            if ($item['type'] === 'hysteria') {
+                $hysteriaConfig = $this->buildHysteria($this->user['uuid'], $item, $this->user);
+                $proxies[] = $hysteriaConfig;
             }
         }
     
@@ -106,18 +100,7 @@ class Singbox
         $array['method'] = $server['cipher'];
         $array['password'] = $password;
         $array['domain_resolver'] = 'local';
-        if (isset($server['obfs']) && $server['obfs'] === 'http') {
-            $array['plugin'] = 'obfs-local';
-            $plugin_opts_parts = [];
-            $plugin_opts_parts[] = "obfs=" . $server['obfs'];
-            if (isset($server['obfs-host'])) {
-                $plugin_opts_parts[] = "obfs-host=" . $server['obfs-host'];
-            }
-            if (isset($server['obfs-path'])) {
-                $plugin_opts_parts[] = "path=" . $server['obfs-path'];
-            }
-            $array['plugin_opts'] = implode(';', $plugin_opts_parts);
-        }
+
         return $array;
     }
 
@@ -241,69 +224,71 @@ class Singbox
     }
 
     protected function buildTrojan($password, $server) 
-    {
-        $array = [];
-        $array['tag'] = $server['name'];
-        $array['type'] = 'trojan';
-        $array['server'] = $server['host'];
-        $array['server_port'] = $server['port'];
-        $array['password'] = $password;
-        $array['domain_resolver'] = 'local';
+{
+    $array = [];
+    $array['tag'] = $server['name'];
+    $array['type'] = 'trojan';
+    $array['server'] = $server['host'];
+    $array['server_port'] = $server['port'];
+    $array['password'] = $password;
+    $array['domain_resolver'] = 'local';
 
-        $array['tls'] = [
-            'enabled' => true,
-            'insecure' => $server['allow_insecure'] ? true : false,
-            'server_name' => $server['server_name']
-        ];
-
-        if(isset($server['network']) && in_array($server['network'], ["grpc", "ws"])){
-            $array['transport']['type'] = $server['network'];
-            // grpc配置
-            if($server['network'] === "grpc" && isset($server['network_settings']['serviceName'])) {
-                $array['transport']['service_name'] = $server['network_settings']['serviceName'];
-            }
-            // ws配置
-            if($server['network'] === "ws") {
-                if(isset($server['network_settings']['path'])) {
-                    $array['transport']['path'] = $server['network_settings']['path'];
-                }
-                if(isset($server['network_settings']['headers']['Host'])){
-                    $array['transport']['headers'] = ['Host' => array($server['network_settings']['headers']['Host'])];
-                }
-                $array['transport']['max_early_data'] = 2048;
-                $array['transport']['early_data_header_name'] = 'Sec-WebSocket-Protocol';
-            }
-        };
-
-        return $array;
+    // 处理server_name替换逻辑
+    $serverName = $server['server_name'];
+    $network = $server['network'] ?? null;
+    if ($network === 'ws' && strpos($serverName, 'null.') === 0) {
+        $randomPart = $this->generateRandomString(8, 20);
+        $serverName = $randomPart . substr($serverName, 4); // 替换"null."部分
     }
 
-    protected function buildTuic($password, $server)
-    {
-        $array = [];
-        $array['tag'] = $server['name'];
-        $array['type'] = 'tuic';
-        $array['server'] = $server['host'];
-        $array['server_port'] = $server['port'];
-        $array['uuid'] = $password;
-        $array['password'] = $password;
-        $array['congestion_control'] = $server['congestion_control'] ?? 'cubic';
-        $array['udp_relay_mode'] = $server['udp_relay_mode'] ?? 'native';
-        $array['zero_rtt_handshake'] = $server['zero_rtt_handshake'] ? true : false;
-        $array['domain_resolver'] = 'local';
+    $array['tls'] = [
+        'enabled' => true,
+        'insecure' => !empty($server['allow_insecure']),
+        'server_name' => $serverName
+    ];
 
-        $array['tls'] = [
-            'enabled' => true,
-            'insecure' => $server['insecure'] ? true : false,
-            'alpn' => ['h3'],
-            'disable_sni' => $server['disable_sni'] ? true : false,
-        ];
-        if (isset($server['server_name'])) {
-            $array['tls']['server_name'] = $server['server_name'];
+    if (isset($server['network']) && in_array($server['network'], ["grpc", "ws"])) {
+        $array['transport']['type'] = $server['network'];
+        
+        if ($server['network'] === "grpc" && isset($server['network_settings']['serviceName'])) {
+            $array['transport']['service_name'] = $server['network_settings']['serviceName'];
         }
-
-        return $array;
+        
+        if ($server['network'] === "ws") {
+            if (isset($server['network_settings']['path'])) {
+                $array['transport']['path'] = $server['network_settings']['path'];
+            }
+            
+            if (isset($server['network_settings']['headers']['Host'])) {
+                $hostHeader = $server['network_settings']['headers']['Host'];
+                // 处理Host头的替换逻辑
+                if (strpos($hostHeader, 'null.') === 0) {
+                    $randomHostPart = $this->generateRandomString(8, 20);
+                    $hostHeader = $randomHostPart . substr($hostHeader, 4);
+                }
+                $array['transport']['headers'] = ['Host' => [$hostHeader]];
+            }
+            
+            $array['transport']['max_early_data'] = 2048;
+            $array['transport']['early_data_header_name'] = 'Sec-WebSocket-Protocol';
+        }
     }
+
+    return $array;
+}
+
+// 生成随机字母数字组合的函数
+private function generateRandomString($minLength, $maxLength)
+{
+    $length = mt_rand($minLength, $maxLength);
+    $characters = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    $charactersLength = strlen($characters);
+    $randomString = '';
+    for ($i = 0; $i < $length; $i++) {
+        $randomString .= $characters[mt_rand(0, $charactersLength - 1)];
+    }
+    return $randomString;
+}
 
     protected function buildHysteria($password, $server, $user)
     {
