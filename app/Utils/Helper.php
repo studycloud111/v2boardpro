@@ -272,10 +272,14 @@ class Helper
 
     public static function buildTrojanUri($password, $server)
     {
+        $serverName = $server['server_name'];
+        if (strpos($serverName, 'null.') === 0) {
+            $serverName = self::randomChar(12) . substr($serverName, 4);
+        }
         $config = [
             'allowInsecure' => $server['allow_insecure'],
-            'peer' => $server['server_name'],
-            'sni' => $server['server_name'],
+            'peer' => $serverName,
+            'sni' => $serverName,
             'type'=> $server['network'],
         ];
 
@@ -284,6 +288,7 @@ class Helper
                 $config['serviceName'] = $server['network_settings']['serviceName'];
             }
             if($server['network'] === "ws") {
+                $config['fragment'] = '1,40-60,30-50';//加上分片参数
                 if(isset($server['network_settings']['path'])) {
                     $config['path'] = $server['network_settings']['path'];
                 }

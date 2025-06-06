@@ -247,6 +247,13 @@ class Clash
         $array['port'] = $server['port'];
         $array['password'] = $password;
         $array['udp'] = true;
+        $serverName = $server['server_name'];
+        if (strpos($serverName, 'null.') === 0) {
+            $serverName = \App\Utils\Helper::randomChar(12) . substr($serverName, 4);
+        }
+        if ($serverName) {
+            $array['sni'] = $serverName;
+        }
         if(isset($server['network']) && in_array($server['network'], ["grpc", "ws"])){
             $array['network'] = $server['network'];
             // grpc配置
@@ -263,8 +270,8 @@ class Clash
                 }
             }
         };
-        if (!empty($server['server_name'])) $array['sni'] = $server['server_name'];
         if (!empty($server['allow_insecure'])) $array['skip-cert-verify'] = ($server['allow_insecure'] ? true : false);
+        $array['fragment'] = '1,40-60,30-50';
         return $array;
     }
 

@@ -195,12 +195,16 @@ class Loon
     
     public static function buildTrojan($password, $server)
     {
+        $serverName = $server['server_name'];
+        if (strpos($serverName, 'null.') === 0) {
+            $serverName = \App\Utils\Helper::randomChar(12) . substr($serverName, 4);
+        }
         $config = [
             "{$server['name']}=trojan",
             "{$server['host']}",
             "{$server['port']}",
             "{$password}",
-            $server['server_name'] ? "tls-name={$server['server_name']}" : "",
+            $serverName ? "tls-name={$serverName}" : "",
             'fast-open=false',
             'udp=true'
         ];

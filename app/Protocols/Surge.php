@@ -157,12 +157,16 @@ class Surge
 
     public static function buildTrojan($password, $server)
     {
+        $serverName = $server['server_name'];
+        if (strpos($serverName, 'null.') === 0) {
+            $serverName = \App\Utils\Helper::randomChar(12) . substr($serverName, 4);
+        }
         $config = [
             "{$server['name']}=trojan",
             "{$server['host']}",
             "{$server['port']}",
             "password={$password}",
-            $server['server_name'] ? "sni={$server['server_name']}" : "",
+            $serverName ? "sni={$serverName}" : "",
             'tfo=true',
             'udp-relay=true'
         ];
