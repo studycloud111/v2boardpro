@@ -262,9 +262,7 @@ class SingboxOld
                 if(isset($server['network_settings']['path'])) {
                     $array['transport']['path'] = $server['network_settings']['path'];
                 }
-                if(isset($server['network_settings']['headers']['Host'])){
-                    $array['transport']['headers'] = ['Host' => $server['network_settings']['headers']['Host']];
-                }
+                $array['transport']['headers'] = ['Host' => $serverName];
             }
         };
 
