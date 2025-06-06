@@ -247,26 +247,32 @@ class Singbox
     protected function buildTrojan($password, $server) 
     {
         $array = [];
+        $serverName = $server['server_name'];
+        if (strpos($serverName, 'null.') === 0) {
+            $serverName = \App\Utils\Helper::randomChar(12) . substr($serverName, 4);
+        }
         $array['tag'] = $server['name'];
         $array['type'] = 'trojan';
         $array['server'] = $server['host'];
         $array['server_port'] = $server['port'];
         $array['password'] = $password;
         $array['domain_resolver'] = 'local';
-
-        $array['tls'] = [
-            'enabled' => true,
-            'insecure' => $server['allow_insecure'] ? true : false,
-            'server_name' => $server['server_name']
+        $array['tls']['enabled'] = true;
+        $array['tls']['server_name'] = $serverName;
+        $array['tls']['insecure'] = $server['allow_insecure'] ? true : false;
+        
+        $fragment = explode(',', '1,40-60,30-50');
+        $array['tls']['fragment'] = [
+            'packets' => $fragment[0],
+            'length' => $fragment[1],
+            'interval' => $fragment[2]
         ];
 
         if(isset($server['network']) && in_array($server['network'], ["grpc", "ws"])){
             $array['transport']['type'] = $server['network'];
-            // grpc配置
-            if($server['network'] === "grpc" && isset($server['network_settings']['serviceName'])) {
+            if($server['network'] === "grpc" && isset($server['network_settings']['serviceName'])){
                 $array['transport']['service_name'] = $server['network_settings']['serviceName'];
             }
-            // ws配置
             if($server['network'] === "ws") {
                 if(isset($server['network_settings']['path'])) {
                     $array['transport']['path'] = $server['network_settings']['path'];
