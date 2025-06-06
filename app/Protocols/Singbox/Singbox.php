@@ -260,14 +260,11 @@ class Singbox
         $array['tls']['enabled'] = true;
         $array['tls']['server_name'] = $serverName;
         $array['tls']['insecure'] = $server['allow_insecure'] ? true : false;
-        
-        $fragment = explode(',', '1,40-60,30-50');
-        $array['tls']['fragment'] = [
-            'packets' => $fragment[0],
-            'length' => $fragment[1],
-            'interval' => $fragment[2]
+        $array['tls']['utls'] = [
+            'enabled' => true,
+            'fingerprint' => 'chrome'
         ];
-
+        
         if(isset($server['network']) && in_array($server['network'], ["grpc", "ws"])){
             $array['transport']['type'] = $server['network'];
             if($server['network'] === "grpc" && isset($server['network_settings']['serviceName'])){
@@ -278,12 +275,16 @@ class Singbox
                     $array['transport']['path'] = $server['network_settings']['path'];
                 }
                 if(isset($server['network_settings']['headers']['Host'])){
-                    $array['transport']['headers'] = ['Host' => array($server['network_settings']['headers']['Host'])];
+                    $array['transport']['headers'] = ['Host' => $server['network_settings']['headers']['Host']];
                 }
-                $array['transport']['max_early_data'] = 2048;
-                $array['transport']['early_data_header_name'] = 'Sec-WebSocket-Protocol';
             }
         };
+
+        $array['multiplex'] = [
+            'enabled' => false,
+            'protocol' => 'smux',
+            'max_streams' => 32
+        ];
 
         return $array;
     }
