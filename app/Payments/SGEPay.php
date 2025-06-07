@@ -2,7 +2,7 @@
 
 namespace App\Payments;
 
-class SGEPay {
+class SGEpay {
     public function __construct($config)
     {
         $this->config = $config;
