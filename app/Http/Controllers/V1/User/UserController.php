@@ -89,15 +89,21 @@ class UserController extends Controller
 
     public function redeemgiftcard(UserRedeemGiftCard $request)
     {
+        $logFile = storage_path('logs/debug.log');
+        file_put_contents($logFile, "--- New Redeem Request ---\n", FILE_APPEND);
+
         DB::beginTransaction();
+        file_put_contents($logFile, "[OK] 1. Transaction started.\n", FILE_APPEND);
 
         try {
             $user = User::where('id', $request->user['id'])->lockForUpdate()->first();
+            file_put_contents($logFile, "[OK] 2. User locked.\n", FILE_APPEND);
             if (!$user) {
                 abort(500, __('The user does not exist'));
             }
             $giftcard_input = $request->giftcard;
             $giftcard = Giftcard::where('code', $giftcard_input)->lockForUpdate()->first();
+            file_put_contents($logFile, "[OK] 3. Giftcard locked.\n", FILE_APPEND);
 
             if (!$giftcard) {
                 abort(500, __('The gift card does not exist'));
@@ -121,6 +127,8 @@ class UserController extends Controller
             if (DB::table('v2_giftcard_user')->where('giftcard_id', $giftcard->id)->where('user_id', $user->id)->exists()) {
                 abort(500, __('The gift card has already been used by this user'));
             }
+            file_put_contents($logFile, "[OK] 4. All checks passed.\n", FILE_APPEND);
+
 
             switch ($giftcard->type) {
                 case 1:
@@ -146,7 +154,9 @@ class UserController extends Controller
                     break;
                 case 5:
                     if ($user->plan_id == null || ($user->expired_at !== null && $user->expired_at < $currentTime)) {
+                        file_put_contents($logFile, "[INFO] Case 5: Fetching plan...\n", FILE_APPEND);
                         $plan = Plan::where('id', $giftcard->plan_id)->first();
+                        file_put_contents($logFile, "[OK] Case 5: Plan fetched.\n", FILE_APPEND);
                         $user->plan_id = $plan->id;
                         $user->group_id = $plan->group_id;
                         $user->transfer_enable = $plan->transfer_enable * 1073741824;
@@ -165,6 +175,7 @@ class UserController extends Controller
                 default:
                     abort(500, __('Unknown gift card type'));
             }
+            file_put_contents($logFile, "[OK] 5. Switch statement passed.\n", FILE_APPEND);
 
             if ($giftcard->limit_use !== null) {
                 $giftcard->limit_use -= 1;
@@ -176,12 +187,15 @@ class UserController extends Controller
                 'created_at' => $currentTime,
                 'updated_at' => $currentTime
             ]);
+            file_put_contents($logFile, "[OK] 6. New record inserted in v2_giftcard_user.\n", FILE_APPEND);
 
             if (!$user->save() || !$giftcard->save()) {
                 throw new \Exception(__('Save failed'));
             }
+            file_put_contents($logFile, "[OK] 7. User and Giftcard saved.\n", FILE_APPEND);
 
             DB::commit();
+            file_put_contents($logFile, "[OK] 8. Transaction committed.\n", FILE_APPEND);
 
             return response([
                 'data' => true,
@@ -190,6 +204,7 @@ class UserController extends Controller
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
+            file_put_contents($logFile, "[ERROR] Exception caught: " . $e->getMessage() . "\n", FILE_APPEND);
             abort(500, $e->getMessage());
         }
     }
