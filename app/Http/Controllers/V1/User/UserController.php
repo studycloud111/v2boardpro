@@ -92,7 +92,7 @@ class UserController extends Controller
         DB::beginTransaction();
 
         try {
-            $user = User::find($request->user['id']);
+            $user = User::where('id', $request->user['id'])->lockForUpdate()->first();
             if (!$user) {
                 abort(500, __('The user does not exist'));
             }
