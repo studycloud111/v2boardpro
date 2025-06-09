@@ -14,14 +14,16 @@ class UserRedeemGiftCard extends FormRequest
     public function rules()
     {
         return [
-            'promo_code' => 'required'
+            'promo_code' => 'required_without:giftcard',
+            'giftcard' => 'required_without:promo_code'
         ];
     }
 
     public function messages()
     {
         return [
-            'promo_code.required' => __('兑换码不能为空')
+            'promo_code.required_without' => __('兑换码不能为空'),
+            'giftcard.required_without' => __('兑换码不能为空')
         ];
     }
 }
