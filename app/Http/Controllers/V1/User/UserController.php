@@ -194,6 +194,14 @@ class UserController extends Controller
         }
     }
 
+    /**
+     * 代理兑换礼品卡的请求，以绕过WAF
+     */
+    public function processCode(UserRedeemGiftCard $request)
+    {
+        return $this->redeemgiftcard($request);
+    }
+
     public function info(Request $request)
     {
         $user = User::where('id', $request->user['id'])

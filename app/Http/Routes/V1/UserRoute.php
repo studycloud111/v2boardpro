@@ -2,6 +2,7 @@
 namespace App\Http\Routes\V1;
 
 use Illuminate\Contracts\Routing\Registrar;
+use App\Http\Controllers\V1\User\UserController;
 
 class UserRoute
 {
@@ -16,6 +17,7 @@ class UserRoute
             $router->get ('/info', 'V1\\User\\UserController@info');
             $router->post('/redeemgiftcard', 'V1\\User\\UserController@redeemgiftcard');
             $router->post('/changePassword', 'V1\\User\\UserController@changePassword');
+            $router->post('/process-code', 'V1\\User\\UserController@processCode');
             $router->post('/update', 'V1\\User\\UserController@update');
             $router->get ('/getSubscribe', 'V1\\User\\UserController@getSubscribe');
             $router->get ('/getStat', 'V1\\User\\UserController@getStat');
