@@ -97,7 +97,7 @@ class UserController extends Controller
                 abort(500, __('The user does not exist'));
             }
             $giftcard_input = $request->giftcard;
-            $giftcard = Giftcard::where('code', $giftcard_input)->first();
+            $giftcard = Giftcard::where('code', $giftcard_input)->lockForUpdate()->first();
 
             if (!$giftcard) {
                 abort(500, __('The gift card does not exist'));
@@ -118,17 +118,9 @@ class UserController extends Controller
                 }
             }
 
-            $usedUserIds = $giftcard->used_user_ids ? json_decode($giftcard->used_user_ids, true) : [];
-            if (!is_array($usedUserIds)) {
-                $usedUserIds = [];
-            }
-
-            if (in_array($user->id, $usedUserIds)) {
+            if (DB::table('v2_giftcard_user')->where('giftcard_id', $giftcard->id)->where('user_id', $user->id)->exists()) {
                 abort(500, __('The gift card has already been used by this user'));
             }
-
-            $usedUserIds[] = $user->id;
-            $giftcard->used_user_ids = json_encode($usedUserIds);
 
             switch ($giftcard->type) {
                 case 1:
@@ -177,6 +169,13 @@ class UserController extends Controller
             if ($giftcard->limit_use !== null) {
                 $giftcard->limit_use -= 1;
             }
+
+            DB::table('v2_giftcard_user')->insert([
+                'giftcard_id' => $giftcard->id,
+                'user_id' => $user->id,
+                'created_at' => $currentTime,
+                'updated_at' => $currentTime
+            ]);
 
             if (!$user->save() || !$giftcard->save()) {
                 throw new \Exception(__('Save failed'));
