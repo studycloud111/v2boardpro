@@ -96,7 +96,7 @@ class UserController extends Controller
             if (!$user) {
                 abort(500, __('The user does not exist'));
             }
-            $giftcard_input = $request->giftcard;
+            $giftcard_input = $request->input('promo_code');
             $giftcard = Giftcard::where('code', $giftcard_input)->lockForUpdate()->first();
 
             if (!$giftcard) {

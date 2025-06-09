@@ -14,14 +14,14 @@ class UserRedeemGiftCard extends FormRequest
     public function rules()
     {
         return [
-            'giftcard' => 'required'
+            'promo_code' => 'required'
         ];
     }
 
     public function messages()
     {
         return [
-            'giftcard.required' => __('Giftcard cannot be empty')
+            'promo_code.required' => __('兑换码不能为空')
         ];
     }
 }
