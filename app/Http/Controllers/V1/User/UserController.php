@@ -173,8 +173,8 @@ class UserController extends Controller
             DB::table('v2_giftcard_user')->insert([
                 'giftcard_id' => $giftcard->id,
                 'user_id' => $user->id,
-                'created_at' => $currentTime,
-                'updated_at' => $currentTime
+                'created_at' => date('Y-m-d H:i:s', $currentTime),
+                'updated_at' => date('Y-m-d H:i:s', $currentTime)
             ]);
 
             if (!$user->save() || !$giftcard->save()) {
