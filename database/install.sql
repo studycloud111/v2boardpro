@@ -540,7 +540,20 @@ CREATE TABLE `v2_user` (
                            `updated_at` int(11) NOT NULL,
                            PRIMARY KEY (`id`),
                            UNIQUE KEY `email` (`email`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8; 
+
+DROP TABLE IF EXISTS `v2_ticket_message`;
+CREATE TABLE  `v2_giftcard_user` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `giftcard_id` int(11) NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `created_at` datetime NOT NULL,
+  `updated_at` datetime NOT NULL,
+  PRIMARY KEY (`id`),
+  INDEX `giftcard_id` (`giftcard_id`),
+  INDEX `user_id` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 
 
 -- 2023-07-17 07:38:59

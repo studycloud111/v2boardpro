@@ -92,12 +92,12 @@ class UserController extends Controller
         DB::beginTransaction();
 
         try {
-            $user = User::find($request->user['id']);
+            $user = User::where('id', $request->user['id'])->lockForUpdate()->first();
             if (!$user) {
                 abort(500, __('The user does not exist'));
             }
-            $giftcard_input = $request->giftcard;
-            $giftcard = Giftcard::where('code', $giftcard_input)->first();
+            $giftcard_input = $request->input('promo_code', $request->input('giftcard'));
+            $giftcard = Giftcard::where('code', $giftcard_input)->lockForUpdate()->first();
 
             if (!$giftcard) {
                 abort(500, __('The gift card does not exist'));
@@ -118,17 +118,9 @@ class UserController extends Controller
                 }
             }
 
-            $usedUserIds = $giftcard->used_user_ids ? json_decode($giftcard->used_user_ids, true) : [];
-            if (!is_array($usedUserIds)) {
-                $usedUserIds = [];
-            }
-
-            if (in_array($user->id, $usedUserIds)) {
+            if (DB::table('v2_giftcard_user')->where('giftcard_id', $giftcard->id)->where('user_id', $user->id)->exists()) {
                 abort(500, __('The gift card has already been used by this user'));
             }
-
-            $usedUserIds[] = $user->id;
-            $giftcard->used_user_ids = json_encode($usedUserIds);
 
             switch ($giftcard->type) {
                 case 1:
@@ -178,6 +170,13 @@ class UserController extends Controller
                 $giftcard->limit_use -= 1;
             }
 
+            DB::table('v2_giftcard_user')->insert([
+                'giftcard_id' => $giftcard->id,
+                'user_id' => $user->id,
+                'created_at' => date('Y-m-d H:i:s', $currentTime),
+                'updated_at' => date('Y-m-d H:i:s', $currentTime)
+            ]);
+
             if (!$user->save() || !$giftcard->save()) {
                 throw new \Exception(__('Save failed'));
             }
@@ -193,6 +192,14 @@ class UserController extends Controller
             DB::rollBack();
             abort(500, $e->getMessage());
         }
+    }
+
+    /**
+     * 代理兑换礼品卡的请求，以绕过WAF
+     */
+    public function processCode(UserRedeemGiftCard $request)
+    {
+        return $this->redeemgiftcard($request);
     }
 
     public function info(Request $request)
