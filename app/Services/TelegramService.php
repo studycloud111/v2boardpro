@@ -14,15 +14,45 @@ class TelegramService {
         $this->api = 'https://api.telegram.org/bot' . config('v2board.telegram_bot_token', $token) . '/';
     }
 
-    public function sendMessage(int $chatId, string $text, string $parseMode = '')
+    public function sendMessage(int $chatId, string $text, string $parseMode = '', $replyMarkup = null)
     {
         if ($parseMode === 'markdown') {
             $text = str_replace('_', '\_', $text);
         }
-        $this->request('sendMessage', [
+        $params = [
             'chat_id' => $chatId,
             'text' => $text,
             'parse_mode' => $parseMode
+        ];
+        if ($replyMarkup) {
+            $params['reply_markup'] = json_encode($replyMarkup);
+        }
+        $this->request('sendMessage', $params);
+    }
+
+    public function editMessageText(int $chatId, int $messageId, string $text, string $parseMode = '', $replyMarkup = null)
+    {
+        if ($parseMode === 'markdown') {
+            $text = str_replace('_', '\_', $text);
+        }
+        $params = [
+            'chat_id' => $chatId,
+            'message_id' => $messageId,
+            'text' => $text,
+            'parse_mode' => $parseMode
+        ];
+        if ($replyMarkup) {
+            $params['reply_markup'] = json_encode($replyMarkup);
+        }
+        $this->request('editMessageText', $params);
+    }
+
+    public function answerCallbackQuery(int $callbackQueryId, string $text, bool $showAlert = false)
+    {
+        $this->request('answerCallbackQuery', [
+            'callback_query_id' => $callbackQueryId,
+            'text' => $text,
+            'show_alert' => $showAlert
         ]);
     }
 
@@ -57,7 +87,7 @@ class TelegramService {
     private function request(string $method, array $params = [])
     {
         $curl = new Curl();
-        $curl->get($this->api . $method . '?' . http_build_query($params));
+        $curl->post($this->api . $method, $params);
         $response = $curl->response;
         $curl->close();
         if (!isset($response->ok)) abort(500, '请求失败');

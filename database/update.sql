@@ -816,3 +816,5 @@ CREATE TABLE IF NOT EXISTS `v2_giftcard_user` (
   INDEX `giftcard_id` (`giftcard_id`),
   INDEX `user_id` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+ALTER TABLE `v2_user` ADD INDEX `telegram_id` (`telegram_id`);

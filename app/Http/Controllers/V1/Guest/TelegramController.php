@@ -32,17 +32,24 @@ class TelegramController extends Controller
     {
         if (!$this->msg) return;
         $msg = $this->msg;
-        $commandName = explode('@', $msg->command);
-
-        // To reduce request, only commands contains @ will get the bot name
-        if (count($commandName) == 2) {
-            $botName = $this->getBotName();
-            if ($commandName[1] === $botName){
-                $msg->command = $commandName[0];
-            }
-        }
 
         try {
+            if ($msg->message_type === 'callback_query') {
+                // 将 callback_query 分发给 Start 命令处理
+                (new \App\Plugins\Telegram\Commands\Start())->callback($msg);
+                return;
+            }
+            
+            $commandName = explode('@', $msg->command);
+
+            // To reduce request, only commands contains @ will get the bot name
+            if (count($commandName) == 2) {
+                $botName = $this->getBotName();
+                if ($commandName[1] === $botName){
+                    $msg->command = $commandName[0];
+                }
+            }
+
             foreach (glob(base_path('app//Plugins//Telegram//Commands') . '/*.php') as $file) {
                 $command = basename($file, '.php');
                 $class = '\\App\\Plugins\\Telegram\\Commands\\' . $command;
@@ -62,7 +69,11 @@ class TelegramController extends Controller
                 }
             }
         } catch (\Exception $e) {
-            $this->telegramService->sendMessage($msg->chat_id, $e->getMessage());
+            if (isset($msg->message_type) && $msg->message_type === 'callback_query') {
+                $this->telegramService->answerCallbackQuery($msg->id, '处理失败: ' . $e->getMessage(), true);
+            } else {
+                $this->telegramService->sendMessage($msg->chat_id, '处理失败: ' . $e->getMessage());
+            }
         }
     }
 
@@ -74,6 +85,22 @@ class TelegramController extends Controller
 
     private function formatMessage(array $data)
     {
+        if (isset($data['callback_query'])) {
+            $this->msg = new \StdClass();
+            $this->msg->message_type = 'callback_query';
+            $this->msg->id = $data['callback_query']['id'];
+            $this->msg->chat_id = $data['callback_query']['message']['chat']['id'];
+            $this->msg->from_id = $data['callback_query']['from']['id'];
+            $this->msg->from_first_name = $data['callback_query']['from']['first_name'];
+            $this->msg->message_id = $data['callback_query']['message']['message_id'];
+            $this->msg->data = $data['callback_query']['data'];
+            $this->msg->is_private = $data['callback_query']['message']['chat']['type'] === 'private';
+            if (isset($data['callback_query']['message']['text'])) {
+                $this->msg->text = $data['callback_query']['message']['text'];
+            }
+            return;
+        }
+
         if (!isset($data['message'])) return;
         if (!isset($data['message']['text'])) return;
         $obj = new \StdClass();
@@ -81,6 +108,8 @@ class TelegramController extends Controller
         $obj->command = $text[0];
         $obj->args = array_slice($text, 1);
         $obj->chat_id = $data['message']['chat']['id'];
+        $obj->from_id = $data['message']['from']['id'];
+        $obj->from_first_name = $data['message']['from']['first_name'];
         $obj->message_id = $data['message']['message_id'];
         $obj->message_type = 'message';
         $obj->text = $data['message']['text'];
