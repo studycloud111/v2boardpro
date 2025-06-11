@@ -428,6 +428,9 @@ CREATE TABLE `v2_commission_log` (
                                      `updated_at` int(11) NOT NULL
 ) COLLATE 'utf8mb4_general_ci';
 
+ALTER TABLE `v2_commission_log` ADD INDEX `idx_invite_user_id` (`invite_user_id`);
+ALTER TABLE `v2_commission_log` ADD INDEX `idx_user_invite` (`user_id`, `invite_user_id`);
+
 ALTER TABLE `v2_plan`
     ADD `reset_traffic_method` tinyint(1) NULL AFTER `reset_price`;
 
@@ -816,3 +819,5 @@ CREATE TABLE IF NOT EXISTS `v2_giftcard_user` (
   INDEX `giftcard_id` (`giftcard_id`),
   INDEX `user_id` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+ALTER TABLE `v2_user` ADD INDEX `telegram_id` (`telegram_id`);
