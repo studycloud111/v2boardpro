@@ -27,7 +27,7 @@ class TelegramService {
         if ($replyMarkup) {
             $params['reply_markup'] = json_encode($replyMarkup);
         }
-        $this->request('sendMessage', $params);
+        return $this->request('sendMessage', $params);
     }
 
     public function editMessageText(int $chatId, int $messageId, string $text, string $parseMode = '', $replyMarkup = null)
@@ -53,6 +53,15 @@ class TelegramService {
             'callback_query_id' => $callbackQueryId,
             'text' => $text,
             'show_alert' => $showAlert
+        ]);
+    }
+
+    public function pinChatMessage(int $chatId, int $messageId, bool $disableNotification = false)
+    {
+        return $this->request('pinChatMessage', [
+            'chat_id' => $chatId,
+            'message_id' => $messageId,
+            'disable_notification' => $disableNotification
         ]);
     }
 

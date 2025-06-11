@@ -29,7 +29,9 @@ CREATE TABLE `v2_commission_log` (
                                      `get_amount` int(11) NOT NULL,
                                      `created_at` int(11) NOT NULL,
                                      `updated_at` int(11) NOT NULL,
-                                     PRIMARY KEY (`id`)
+                                     PRIMARY KEY (`id`),
+                                     INDEX `idx_invite_user_id` (`invite_user_id`),
+                                     INDEX `idx_user_invite` (`user_id`, `invite_user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 

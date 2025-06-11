@@ -23,7 +23,7 @@ class Start
         if (!$user) {
             $this->telegramService->sendMessage(
                 $message->chat_id,
-                "您好，您尚未绑定账号。\n请使用 `/bind <订阅链接或邮箱>` 进行绑定。",
+                "您好，您尚未绑定账号。\n请使用 `/bind <订阅链接>` 进行绑定。",
                 'markdown'
             );
             return;
@@ -49,6 +49,11 @@ class Start
         if (!$user) {
             $this->telegramService->answerCallbackQuery($message->id, '请先绑定账号', true);
             return;
+        }
+
+        // 记录群组ID用于开奖通知
+        if (!$message->is_private) {
+            Cache::put('contest_group_id', $message->chat_id, 86400 * 7); // 保存7天
         }
 
         // Only restrict sensitive operations in groups
@@ -81,6 +86,33 @@ class Start
                 break;
             case 'official_website':
                 $this->showOfficialWebsite($message);
+                break;
+            case 'telegram_group':
+                $this->showTelegramGroup($message);
+                break;
+            case 'daily_contest':
+                $this->showDailyContest($message);
+                break;
+            case 'contest_traffic':
+                $this->showContestTraffic($message);
+                break;
+            case 'contest_time':
+                $this->showContestTime($user, $message);
+                break;
+            case (preg_match('/^join_contest_traffic_(\d+)$/', $message->data, $matches) ? true : false):
+                $this->joinContestTraffic($user, $message, (int)$matches[1]);
+                break;
+            case (preg_match('/^join_contest_time_(\d+)$/', $message->data, $matches) ? true : false):
+                $this->joinContestTime($user, $message, (int)$matches[1]);
+                break;
+            case 'contest_ranking':
+                $this->showContestRanking($message);
+                break;
+            case 'contest_history':
+                $this->showContestHistory($message);
+                break;
+            case 'game_ranking':
+                $this->showGameRanking($message);
                 break;
             case 'gamble_traffic':
                 $this->showGambleTrafficOptions($message);
@@ -162,7 +194,9 @@ class Start
 
             // Commission promotion info
             $commissionRate = $user->commission_rate ?? config('v2board.invite_commission', 25);
-            $paidUserCount = \App\Models\CommissionLog::where('invite_user_id', $user->id)->distinct('user_id')->count();
+            $paidUserCount = Cache::remember("invite_count_{$user->id}", 1800, function() use ($user) {
+                return \App\Models\CommissionLog::where('invite_user_id', $user->id)->distinct('user_id')->count();
+            });
             
             $tiers = [
                 ['threshold' => 50, 'rate' => 40, 'name' => '高级推广员'],
@@ -182,9 +216,9 @@ class Start
                              "📊 当前返利：`{$commissionRate}%`\n";
             
             if ($nextTier) {
-                $promotionText .= "📈 推广进度：`{$paidUserCount}/{$nextTier['threshold']}` 人\n";
+                $promotionText .= "💰 邀请的付费用户：`{$paidUserCount}/{$nextTier['threshold']}` 人\n";
             } else {
-                $promotionText .= "🏆 推广进度：您已是最高等级的推广大师！\n";
+                $promotionText .= "🏆 邀请的付费用户：您已是最高等级的推广大师！\n";
             }
 
             $text = "👤 **个人信息**\n" .
@@ -297,10 +331,11 @@ class Start
             ],
             [
                 ['text' => '🌐 官网', 'callback_data' => 'official_website'],
-                ['text' => '🔓 解绑账号', 'callback_data' => 'confirm_unbind']
+                ['text' => '📱 TG群组', 'callback_data' => 'telegram_group'],
+                ['text' => '🎮 娱乐中心', 'callback_data' => 'entertainment_center']
             ],
             [
-                ['text' => '🎮 娱乐中心', 'callback_data' => 'entertainment_center']
+                ['text' => '🔓 解绑账号', 'callback_data' => 'confirm_unbind']
             ]
         ];
     }
@@ -363,15 +398,24 @@ class Start
                 ['text' => '⏰ 时光扭蛋机(时间)', 'callback_data' => 'gamble_time']
             ],
             [
+                ['text' => '🎲 每日竞猜', 'callback_data' => 'daily_contest']
+            ],
+            [
+                ['text' => '🏆 游戏排行榜', 'callback_data' => 'game_ranking']
+            ],
+            [
                 ['text' => '🔙 返回主菜单', 'callback_data' => 'go_back']
             ]
         ];
+        
         $replyMarkup = ['inline_keyboard' => $keyboard];
+
+        $text = $this->getOwnerGreeting($message) . "\n\n🎮 **娱乐中心** 🎮\n\n🎉 欢迎来到娱乐中心！请选择您想玩的游戏：\n\n💡 提示：开奖结果将在群组中公布！";
 
         $this->telegramService->editMessageText(
             $message->chat_id,
             $message->message_id,
-            $this->getOwnerGreeting($message) . "\n\n🎮 **娱乐中心** 🎮\n\n🎉 欢迎来到娱乐中心！请选择您想玩的游戏：",
+            $text,
             'markdown',
             $replyMarkup
         );
@@ -399,6 +443,48 @@ class Start
             'markdown',
             $replyMarkup
         );
+        $this->telegramService->answerCallbackQuery($message->id, '', false);
+    }
+
+    private function showTelegramGroup($message)
+    {
+        $telegramGroupUrl = config('v2board.telegram_discuss_link', '');
+        
+        if (empty($telegramGroupUrl)) {
+            $keyboard = [
+                [
+                    ['text' => '🔙 返回主菜单', 'callback_data' => 'go_back']
+                ]
+            ];
+            $replyMarkup = ['inline_keyboard' => $keyboard];
+
+            $this->telegramService->editMessageText(
+                $message->chat_id,
+                $message->message_id,
+                $this->getOwnerGreeting($message) . "\n\n📱 **TG群组** 📱\n\n⚠️ 暂未配置群组链接，请联系管理员。",
+                'markdown',
+                $replyMarkup
+            );
+        } else {
+            $keyboard = [
+                [
+                    ['text' => '🚀 加入群组', 'url' => $telegramGroupUrl]
+                ],
+                [
+                    ['text' => '🔙 返回主菜单', 'callback_data' => 'go_back']
+                ]
+            ];
+            $replyMarkup = ['inline_keyboard' => $keyboard];
+
+            $this->telegramService->editMessageText(
+                $message->chat_id,
+                $message->message_id,
+                $this->getOwnerGreeting($message) . "\n\n📱 **TG群组** 📱\n\n🎉 欢迎加入我们的官方Telegram群组！\n\n💬 在群组中您可以：\n• 📢 获取最新公告和更新\n• 🤝 与其他用户交流经验\n• 🛠️ 获得技术支持和帮助\n• 💡 提出建议和反馈\n\n📱 请点击下方按钮加入群组：",
+                'markdown',
+                $replyMarkup
+            );
+        }
+        
         $this->telegramService->answerCallbackQuery($message->id, '', false);
     }
 
@@ -515,6 +601,19 @@ class Start
 
             $resultText = $prizeGb >= $gb ? "🎉 **恭喜中奖！** 🎉\n\n{$userMention} 消耗了 `{$gb} GB` 流量，幸运地抽中了 `{$prizeGb} GB` 超级大奖！" : "😅 **阳光普照** 😅\n\n{$userMention} 消耗了 `{$gb} GB` 流量，抽中了 `{$prizeGb} GB` 阳光普照奖。";
             $text = "{$resultText}\n\n🎲 继续游戏，好运连连！";
+            
+            // 记录游戏结果到缓存（用于排行榜）
+            if ($prizeGb >= $gb * 2) { // 2倍以上算大奖
+                $gameRecord = [
+                    'type' => 'traffic',
+                    'player' => $this->hideEmail($user->email),
+                    'bet' => $gb,
+                    'win' => $prizeGb,
+                    'time' => date('H:i'),
+                    'timestamp' => time()
+                ];
+                $this->addGameRecord($gameRecord);
+            }
             
             $keyboard = [
                 [
@@ -678,6 +777,19 @@ class Start
             $resultText = $prizeDays >= $days ? "🎉 **恭喜中奖！** 🎉\n\n{$userMention}消耗了 `{$days} 天`，幸运地抽中了 `{$prizeDays} 天` 有效期！" : "😅 **阳光普照** 😅\n\n{$userMention}消耗了 `{$days} 天`，抽中了 `{$prizeDays} 天` 安慰奖。";
             $text = "{$resultText}\n\n🎲 继续游戏，好运连连！";
             
+            // 记录游戏结果到缓存（用于排行榜）
+            if ($prizeDays >= $days * 2) { // 2倍以上算大奖
+                $gameRecord = [
+                    'type' => 'time',
+                    'player' => $this->hideEmail($user->email),
+                    'bet' => $days,
+                    'win' => $prizeDays,
+                    'time' => date('H:i'),
+                    'timestamp' => time()
+                ];
+                $this->addGameRecord($gameRecord);
+            }
+            
             $keyboard = [
                 [
                     ['text' => '🔄 再玩一次', 'callback_data' => 'gamble_time'],
@@ -722,11 +834,13 @@ class Start
             return;
         }
 
-        $paidUserCount = \App\Models\CommissionLog::where('invite_user_id', $user->id)->distinct('user_id')->count();
+        $paidUserCount = Cache::remember("invite_count_{$user->id}", 1800, function() use ($user) {
+            return \App\Models\CommissionLog::where('invite_user_id', $user->id)->distinct('user_id')->count();
+        });
 
         if ($paidUserCount < $nextTier['threshold']) {
             $remaining = $nextTier['threshold'] - $paidUserCount;
-            $this->telegramService->answerCallbackQuery($message->id, "任务还未完成哦！您当前已邀请 {$paidUserCount}/{$nextTier['threshold']} 人，还差 {$remaining} 人。", true);
+            $this->telegramService->answerCallbackQuery($message->id, "任务还未完成哦！您当前已有 {$paidUserCount}/{$nextTier['threshold']} 位邀请的付费用户，还差 {$remaining} 人。", true);
             return;
         }
 
@@ -739,5 +853,593 @@ class Start
         // Refresh the account view
         $this->myAccount($user, $message);
         $this->telegramService->answerCallbackQuery($message->id, "🎉 恭喜！您已成功晋升为{$nextTier['name']}，返利比例已提升至{$nextTier['rate']}%！", true);
+    }
+
+    private function addGameRecord($record)
+    {
+        $cacheKey = 'game_records_' . date('Y-m-d');
+        $records = Cache::get($cacheKey, []);
+        
+        // 添加新记录到开头
+        array_unshift($records, $record);
+        
+        // 保持最多20条记录
+        $records = array_slice($records, 0, 20);
+        
+        // 缓存24小时
+        Cache::put($cacheKey, $records, 86400);
+    }
+
+    private function showGameRanking($message)
+    {
+        $today = date('Y-m-d');
+        $todayRecords = Cache::get('game_records_' . $today, []);
+        
+        $text = "🏆 **今日游戏大奖榜** 🏆\n";
+        $text .= "━━━━━━━━━━━━━━━━━\n";
+
+        if (empty($todayRecords)) {
+            $text .= "🌟 今日暂无大奖记录\n";
+            $text .= "💫 快去游戏赢取大奖吧！";
+        } else {
+            $count = 0;
+            foreach ($todayRecords as $record) {
+                $count++;
+                if ($count > 10) break; // 只显示前10条
+                
+                $typeIcon = $record['type'] === 'traffic' ? '📊' : '⏰';
+                $unit = $record['type'] === 'traffic' ? 'GB' : '天';
+                $ratio = round($record['win'] / $record['bet'], 1);
+                
+                $text .= "{$typeIcon} `{$record['player']}` {$record['time']}\n";
+                $text .= "   投入 `{$record['bet']} {$unit}` ➜ 赢得 `{$record['win']} {$unit}` ({$ratio}倍)\n\n";
+            }
+        }
+
+        $text .= "━━━━━━━━━━━━━━━━━\n";
+        $text .= "🎮 快去参与游戏，争夺今日榜首！\n";
+        $text .= "🕐 更新时间：`" . date('H:i:s') . "`";
+
+        $keyboard = [
+            [
+                ['text' => '🎰 去玩转盘', 'callback_data' => 'gamble_traffic'],
+                ['text' => '⏰ 去玩扭蛋', 'callback_data' => 'gamble_time']
+            ],
+            [
+                ['text' => '🔄 刷新排行', 'callback_data' => 'game_ranking'],
+                ['text' => '🔙 返回娱乐中心', 'callback_data' => 'entertainment_center']
+            ]
+        ];
+        $replyMarkup = ['inline_keyboard' => $keyboard];
+
+        $this->telegramService->editMessageText(
+            $message->chat_id,
+            $message->message_id,
+            $this->getOwnerGreeting($message) . "\n\n" . $text,
+            'markdown',
+            $replyMarkup
+        );
+        $this->telegramService->answerCallbackQuery($message->id, '✅ 排行榜已刷新', false);
+    }
+
+    private function hideEmail($email)
+    {
+        $parts = explode('@', $email);
+        if (count($parts) != 2) {
+            return substr($email, 0, 3) . '***';
+        }
+        
+        $username = $parts[0];
+        $domain = $parts[1];
+        
+        if (strlen($username) <= 3) {
+            $hiddenUsername = $username[0] . str_repeat('*', strlen($username) - 1);
+        } else {
+            $hiddenUsername = substr($username, 0, 2) . str_repeat('*', strlen($username) - 2);
+        }
+        
+        return $hiddenUsername . '@' . $domain;
+    }
+
+    private function showDailyContest($message)
+    {
+        $today = date('Y-m-d');
+        $trafficPool = $this->getContestPool('traffic', $today);
+        $timePool = $this->getContestPool('time', $today);
+        $trafficCount = $this->getContestParticipantCount('traffic', $today);
+        $timeCount = $this->getContestParticipantCount('time', $today);
+        
+        // 计算距离开奖的时间
+        $now = time();
+        $todayDraw = strtotime(date('Y-m-d 21:00:00'));
+        
+        // 如果今天21点还没到，下次开奖就是今天21点；否则是明天21点
+        if ($now < $todayDraw) {
+            $nextDrawTime = $todayDraw;
+        } else {
+            $nextDrawTime = strtotime(date('Y-m-d 21:00:00', strtotime('+1 day')));
+        }
+        
+        $timeLeft = $nextDrawTime - $now;
+        $hoursLeft = floor($timeLeft / 3600);
+        $minutesLeft = floor(($timeLeft % 3600) / 60);
+        
+        $text = "🎲 **每日竞猜大奖赛** 🎲\n";
+        $text .= "━━━━━━━━━━━━━━━━━\n";
+        $text .= "🕐 距离开奖：`{$hoursLeft}小时{$minutesLeft}分钟`\n\n";
+        
+        $text .= "💎 **流量竞猜池**\n";
+        $text .= "🏆 当前奖池：`{$trafficPool} GB`\n";
+        $text .= "👥 参与人数：`{$trafficCount}` 人\n\n";
+        
+        $text .= "⏰ **时间竞猜池**\n";
+        $text .= "🏆 当前奖池：`{$timePool}` 天\n";
+        $text .= "👥 参与人数：`{$timeCount}` 人\n\n";
+        
+        $text .= "━━━━━━━━━━━━━━━━━\n";
+        $text .= "🎯 **奖励分配**：前三名瓜分奖池\n";
+        $text .= "🥇 第一名：`50%` | 🥈 第二名：`30%` | 🥉 第三名：`20%`\n";
+        $text .= "━━━━━━━━━━━━━━━━━\n";
+        $text .= "💫 每日21:00自动开奖，幸运之神眷顾谁？";
+
+        $keyboard = [
+            [
+                ['text' => '💎 参与流量竞猜', 'callback_data' => 'contest_traffic'],
+                ['text' => '⏰ 参与时间竞猜', 'callback_data' => 'contest_time']
+            ],
+            [
+                ['text' => '📊 实时排行', 'callback_data' => 'contest_ranking'],
+                ['text' => '📜 历史记录', 'callback_data' => 'contest_history']
+            ],
+            [
+                ['text' => '🔙 返回娱乐中心', 'callback_data' => 'entertainment_center']
+            ]
+        ];
+        $replyMarkup = ['inline_keyboard' => $keyboard];
+
+        $this->telegramService->editMessageText(
+            $message->chat_id,
+            $message->message_id,
+            $this->getOwnerGreeting($message) . "\n\n" . $text,
+            'markdown',
+            $replyMarkup
+        );
+        $this->telegramService->answerCallbackQuery($message->id, '', false);
+    }
+
+    private function showContestTraffic($message)
+    {
+        $today = date('Y-m-d');
+        $currentPool = $this->getContestPool('traffic', $today);
+        $participantCount = $this->getContestParticipantCount('traffic', $today);
+        
+        $text = "💎 **流量竞猜池** 💎\n";
+        $text .= "━━━━━━━━━━━━━━━━━\n";
+        $text .= "🏆 当前奖池：`{$currentPool} GB`\n";
+        $text .= "👥 参与人数：`{$participantCount}` 人\n\n";
+        $text .= "💰 请选择您的下注金额：";
+
+        $keyboard = [
+            [
+                ['text' => '💎 5 GB', 'callback_data' => 'join_contest_traffic_5'],
+                ['text' => '💎 10 GB', 'callback_data' => 'join_contest_traffic_10']
+            ],
+            [
+                ['text' => '💎 20 GB', 'callback_data' => 'join_contest_traffic_20'],
+                ['text' => '💎 50 GB', 'callback_data' => 'join_contest_traffic_50']
+            ],
+            [
+                ['text' => '🔙 返回竞猜中心', 'callback_data' => 'daily_contest']
+            ]
+        ];
+        $replyMarkup = ['inline_keyboard' => $keyboard];
+
+        $this->telegramService->editMessageText(
+            $message->chat_id,
+            $message->message_id,
+            $this->getOwnerGreeting($message) . "\n\n" . $text,
+            'markdown',
+            $replyMarkup
+        );
+        $this->telegramService->answerCallbackQuery($message->id, '', false);
+    }
+
+    private function showContestTime($user, $message)
+    {
+        if ($user->expired_at === NULL) {
+            $this->telegramService->answerCallbackQuery($message->id, '您好，一次性或永久套餐无法参与时间竞猜。', true);
+            $this->showDailyContest($message);
+            return;
+        }
+
+        $today = date('Y-m-d');
+        $currentPool = $this->getContestPool('time', $today);
+        $participantCount = $this->getContestParticipantCount('time', $today);
+        
+        $text = "⏰ **时间竞猜池** ⏰\n";
+        $text .= "━━━━━━━━━━━━━━━━━\n";
+        $text .= "🏆 当前奖池：`{$currentPool}` 天\n";
+        $text .= "👥 参与人数：`{$participantCount}` 人\n\n";
+        $text .= "💰 请选择您的下注天数：";
+
+        $keyboard = [
+            [
+                ['text' => '⏰ 1 天', 'callback_data' => 'join_contest_time_1'],
+                ['text' => '⏰ 3 天', 'callback_data' => 'join_contest_time_3']
+            ],
+            [
+                ['text' => '⏰ 7 天', 'callback_data' => 'join_contest_time_7'],
+                ['text' => '⏰ 15 天', 'callback_data' => 'join_contest_time_15']
+            ],
+            [
+                ['text' => '🔙 返回竞猜中心', 'callback_data' => 'daily_contest']
+            ]
+        ];
+        $replyMarkup = ['inline_keyboard' => $keyboard];
+
+        $this->telegramService->editMessageText(
+            $message->chat_id,
+            $message->message_id,
+            $this->getOwnerGreeting($message) . "\n\n" . $text,
+            'markdown',
+            $replyMarkup
+        );
+        $this->telegramService->answerCallbackQuery($message->id, '', false);
+    }
+
+    private function joinContestTraffic($user, $message, $gb)
+    {
+        $lock = Cache::lock('lock_contest_' . $user->id, 10);
+        if (!$lock->get()) {
+            $this->telegramService->answerCallbackQuery($message->id, '您操作太快了，请稍后再试。', true);
+            return;
+        }
+
+        try {
+            $user->refresh();
+            $today = date('Y-m-d');
+            
+            // 检查是否已参与今日流量竞猜
+            if ($this->hasUserJoinedContest($user->id, 'traffic', $today)) {
+                $this->telegramService->answerCallbackQuery($message->id, '您今日已参与流量竞猜，每人每日只能参与一次。', true);
+                return;
+            }
+
+            $cost = $gb * 1024 * 1024 * 1024;
+            if ($user->transfer_enable < $cost) {
+                $this->telegramService->answerCallbackQuery($message->id, '您的流量不足，无法参与本次竞猜。', true);
+                return;
+            }
+
+            // 扣除用户流量
+            $user->transfer_enable -= $cost;
+            if (!$user->save()) {
+                $this->telegramService->answerCallbackQuery($message->id, '参与失败，数据保存时出错，请稍后再试。', true);
+                return;
+            }
+
+            // 添加到竞猜池
+            $this->addContestParticipant($user, 'traffic', $today, $gb);
+            
+            $newPool = $this->getContestPool('traffic', $today);
+            $participantCount = $this->getContestParticipantCount('traffic', $today);
+            
+            $userName = str_replace(['[', ']', '(', ')', '`', '*', '_'], '', $message->from_first_name);
+            $userMention = $message->is_private ? "您" : "[{$userName}](tg://user?id={$message->from_id})";
+            
+            $text = "🎉 **参与成功！** 🎉\n\n";
+            $text .= "{$userMention} 已投入 `{$gb} GB` 参与流量竞猜！\n\n";
+            $text .= "💎 **当前奖池：** `{$newPool} GB`\n";
+            $text .= "👥 **参与人数：** `{$participantCount}` 人\n\n";
+            $text .= "🍀 祝您好运，期待明日开奖！";
+
+            $keyboard = [
+                [
+                    ['text' => '📊 查看排行', 'callback_data' => 'contest_ranking'],
+                    ['text' => '⏰ 参与时间竞猜', 'callback_data' => 'contest_time']
+                ],
+                [
+                    ['text' => '🔙 返回竞猜中心', 'callback_data' => 'daily_contest']
+                ]
+            ];
+            $replyMarkup = ['inline_keyboard' => $keyboard];
+
+            $this->telegramService->editMessageText(
+                $message->chat_id,
+                $message->message_id,
+                $this->getOwnerGreeting($message, $user) . "\n\n" . $text,
+                'markdown',
+                $replyMarkup
+            );
+            $this->telegramService->answerCallbackQuery($message->id, "成功投入 {$gb} GB！", false);
+
+        } finally {
+            $lock->release();
+        }
+    }
+
+    private function joinContestTime($user, $message, $days)
+    {
+        if ($user->expired_at === NULL) {
+            $this->telegramService->answerCallbackQuery($message->id, '您好，一次性或永久套餐无法参与时间竞猜。', true);
+            return;
+        }
+
+        $lock = Cache::lock('lock_contest_' . $user->id, 10);
+        if (!$lock->get()) {
+            $this->telegramService->answerCallbackQuery($message->id, '您操作太快了，请稍后再试。', true);
+            return;
+        }
+
+        try {
+            $user->refresh();
+            $today = date('Y-m-d');
+            
+            // 检查是否已参与今日时间竞猜
+            if ($this->hasUserJoinedContest($user->id, 'time', $today)) {
+                $this->telegramService->answerCallbackQuery($message->id, '您今日已参与时间竞猜，每人每日只能参与一次。', true);
+                return;
+            }
+
+            $costSeconds = $days * 86400;
+            if ($user->expired_at < (time() + $costSeconds)) {
+                $this->telegramService->answerCallbackQuery($message->id, '您的剩余时长不足，无法参与本次竞猜。', true);
+                return;
+            }
+
+            // 扣除用户时间
+            $user->expired_at -= $costSeconds;
+            if (!$user->save()) {
+                $this->telegramService->answerCallbackQuery($message->id, '参与失败，数据保存时出错，请稍后再试。', true);
+                return;
+            }
+
+            // 添加到竞猜池
+            $this->addContestParticipant($user, 'time', $today, $days);
+            
+            $newPool = $this->getContestPool('time', $today);
+            $participantCount = $this->getContestParticipantCount('time', $today);
+            
+            $userName = str_replace(['[', ']', '(', ')', '`', '*', '_'], '', $message->from_first_name);
+            $userMention = $message->is_private ? "您" : "[{$userName}](tg://user?id={$message->from_id})";
+            
+            $text = "🎉 **参与成功！** 🎉\n\n";
+            $text .= "{$userMention} 已投入 `{$days}` 天参与时间竞猜！\n\n";
+            $text .= "⏰ **当前奖池：** `{$newPool}` 天\n";
+            $text .= "👥 **参与人数：** `{$participantCount}` 人\n\n";
+            $text .= "🍀 祝您好运，期待明日开奖！";
+
+            $keyboard = [
+                [
+                    ['text' => '📊 查看排行', 'callback_data' => 'contest_ranking'],
+                    ['text' => '💎 参与流量竞猜', 'callback_data' => 'contest_traffic']
+                ],
+                [
+                    ['text' => '🔙 返回竞猜中心', 'callback_data' => 'daily_contest']
+                ]
+            ];
+            $replyMarkup = ['inline_keyboard' => $keyboard];
+
+            $this->telegramService->editMessageText(
+                $message->chat_id,
+                $message->message_id,
+                $this->getOwnerGreeting($message, $user) . "\n\n" . $text,
+                'markdown',
+                $replyMarkup
+            );
+            $this->telegramService->answerCallbackQuery($message->id, "成功投入 {$days} 天！", false);
+
+        } finally {
+            $lock->release();
+        }
+    }
+
+    private function getContestPool($type, $date)
+    {
+        $cacheKey = "contest_{$type}_pool_{$date}";
+        return Cache::get($cacheKey, 0);
+    }
+
+    private function getContestParticipantCount($type, $date)
+    {
+        $cacheKey = "contest_{$type}_participants_{$date}";
+        $participants = Cache::get($cacheKey, []);
+        return count($participants);
+    }
+
+    private function hasUserJoinedContest($userId, $type, $date)
+    {
+        $cacheKey = "contest_{$type}_participants_{$date}";
+        $participants = Cache::get($cacheKey, []);
+        return isset($participants[$userId]);
+    }
+
+    private function addContestParticipant($user, $type, $date, $amount)
+    {
+        // 添加到参与者列表
+        $participantsCacheKey = "contest_{$type}_participants_{$date}";
+        $participants = Cache::get($participantsCacheKey, []);
+        $participants[$user->id] = [
+            'user_id' => $user->id,
+            'email' => $user->email,
+            'amount' => $amount,
+            'timestamp' => time()
+        ];
+        
+        // 更新奖池
+        $poolCacheKey = "contest_{$type}_pool_{$date}";
+        $currentPool = Cache::get($poolCacheKey, 0);
+        $newPool = $currentPool + $amount;
+        
+        // 缓存到第二天凌晨1点（开奖后4小时）
+        $expireTime = strtotime(date('Y-m-d 01:00:00', strtotime('+1 day')));
+        $ttl = $expireTime - time();
+        
+        Cache::put($participantsCacheKey, $participants, $ttl);
+        Cache::put($poolCacheKey, $newPool, $ttl);
+    }
+
+    private function getContestParticipants($type, $date)
+    {
+        $cacheKey = "contest_{$type}_participants_{$date}";
+        return Cache::get($cacheKey, []);
+    }
+
+    private function showContestRanking($message)
+    {
+        $today = date('Y-m-d');
+        $trafficParticipants = $this->getContestParticipants('traffic', $today);
+        $timeParticipants = $this->getContestParticipants('time', $today);
+        
+        $text = "📊 **今日竞猜实时排行** 📊\n";
+        $text .= "━━━━━━━━━━━━━━━━━\n";
+        
+        // 流量竞猜排行
+        $text .= "💎 **流量竞猜池**\n";
+        if (empty($trafficParticipants)) {
+            $text .= "暂无参与者\n\n";
+        } else {
+            // 按下注金额排序
+            uasort($trafficParticipants, function($a, $b) {
+                return $b['amount'] - $a['amount'];
+            });
+            
+            $rank = 1;
+            foreach ($trafficParticipants as $participant) {
+                if ($rank > 10) break; // 只显示前10名
+                
+                $rankIcon = $rank <= 3 ? ['🥇', '🥈', '🥉'][$rank-1] : "#{$rank}";
+                $hiddenEmail = $this->hideEmail($participant['email']);
+                $text .= "{$rankIcon} `{$hiddenEmail}` - {$participant['amount']} GB\n";
+                $rank++;
+            }
+            $text .= "\n";
+        }
+        
+        // 时间竞猜排行
+        $text .= "⏰ **时间竞猜池**\n";
+        if (empty($timeParticipants)) {
+            $text .= "暂无参与者\n\n";
+        } else {
+            // 按下注天数排序
+            uasort($timeParticipants, function($a, $b) {
+                return $b['amount'] - $a['amount'];
+            });
+            
+            $rank = 1;
+            foreach ($timeParticipants as $participant) {
+                if ($rank > 10) break; // 只显示前10名
+                
+                $rankIcon = $rank <= 3 ? ['🥇', '🥈', '🥉'][$rank-1] : "#{$rank}";
+                $hiddenEmail = $this->hideEmail($participant['email']);
+                $text .= "{$rankIcon} `{$hiddenEmail}` - {$participant['amount']} 天\n";
+                $rank++;
+            }
+            $text .= "\n";
+        }
+        
+        $text .= "━━━━━━━━━━━━━━━━━\n";
+        $text .= "🎯 奖励分配：前三名按 50%、30%、20% 瓜分奖池\n";
+        $text .= "🕐 更新时间：`" . date('H:i:s') . "`";
+
+        $keyboard = [
+            [
+                ['text' => '💎 参与流量竞猜', 'callback_data' => 'contest_traffic'],
+                ['text' => '⏰ 参与时间竞猜', 'callback_data' => 'contest_time']
+            ],
+            [
+                ['text' => '🔄 刷新排行', 'callback_data' => 'contest_ranking'],
+                ['text' => '🔙 返回竞猜中心', 'callback_data' => 'daily_contest']
+            ]
+        ];
+        $replyMarkup = ['inline_keyboard' => $keyboard];
+
+        $this->telegramService->editMessageText(
+            $message->chat_id,
+            $message->message_id,
+            $this->getOwnerGreeting($message) . "\n\n" . $text,
+            'markdown',
+            $replyMarkup
+        );
+        $this->telegramService->answerCallbackQuery($message->id, '✅ 排行榜已刷新', false);
+    }
+
+    private function showContestHistory($message)
+    {
+        $text = "📜 **竞猜历史记录** 📜\n";
+        $text .= "━━━━━━━━━━━━━━━━━\n";
+        
+        $histories = [];
+        
+        // 获取最近7天的开奖记录
+        for ($i = 1; $i <= 7; $i++) {
+            $date = date('Y-m-d', strtotime("-{$i} days"));
+            $historyKey = "contest_history_{$date}";
+            $history = Cache::get($historyKey, null);
+            
+            if ($history) {
+                $histories[] = $history;
+            }
+        }
+        
+        if (empty($histories)) {
+            $text .= "🌟 暂无历史记录\n";
+            $text .= "💫 快来参与今日竞猜吧！";
+        } else {
+            foreach ($histories as $history) {
+                $text .= "📅 **{$history['date']}**\n";
+                
+                // 流量竞猜结果
+                if (!empty($history['traffic'])) {
+                    $traffic = $history['traffic'];
+                    $text .= "💎 流量池：`{$traffic['pool']} GB` ({$traffic['participants']}人参与)\n";
+                    if (!empty($traffic['winners'])) {
+                        foreach ($traffic['winners'] as $rank => $winner) {
+                            $rankIcon = ['🥇', '🥈', '🥉'][$rank];
+                            $hiddenEmail = $this->hideEmail($winner['email']);
+                            $text .= "   {$rankIcon} `{$hiddenEmail}` 获得 `{$winner['prize']} GB`\n";
+                        }
+                    }
+                }
+                
+                // 时间竞猜结果
+                if (!empty($history['time'])) {
+                    $time = $history['time'];
+                    $text .= "⏰ 时间池：`{$time['pool']}` 天 ({$time['participants']}人参与)\n";
+                    if (!empty($time['winners'])) {
+                        foreach ($time['winners'] as $rank => $winner) {
+                            $rankIcon = ['🥇', '🥈', '🥉'][$rank];
+                            $hiddenEmail = $this->hideEmail($winner['email']);
+                            $text .= "   {$rankIcon} `{$hiddenEmail}` 获得 `{$winner['prize']}` 天\n";
+                        }
+                    }
+                }
+                $text .= "\n";
+            }
+        }
+        
+        $text .= "━━━━━━━━━━━━━━━━━\n";
+        $text .= "🎯 每日21:00自动开奖，公平公正！";
+
+        $keyboard = [
+            [
+                ['text' => '💎 参与流量竞猜', 'callback_data' => 'contest_traffic'],
+                ['text' => '⏰ 参与时间竞猜', 'callback_data' => 'contest_time']
+            ],
+            [
+                ['text' => '📊 查看排行', 'callback_data' => 'contest_ranking'],
+                ['text' => '🔙 返回竞猜中心', 'callback_data' => 'daily_contest']
+            ]
+        ];
+        $replyMarkup = ['inline_keyboard' => $keyboard];
+
+        $this->telegramService->editMessageText(
+            $message->chat_id,
+            $message->message_id,
+            $this->getOwnerGreeting($message) . "\n\n" . $text,
+            'markdown',
+            $replyMarkup
+        );
+        $this->telegramService->answerCallbackQuery($message->id, '', false);
     }
 } 

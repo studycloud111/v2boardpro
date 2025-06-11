@@ -428,6 +428,9 @@ CREATE TABLE `v2_commission_log` (
                                      `updated_at` int(11) NOT NULL
 ) COLLATE 'utf8mb4_general_ci';
 
+ALTER TABLE `v2_commission_log` ADD INDEX `idx_invite_user_id` (`invite_user_id`);
+ALTER TABLE `v2_commission_log` ADD INDEX `idx_user_invite` (`user_id`, `invite_user_id`);
+
 ALTER TABLE `v2_plan`
     ADD `reset_traffic_method` tinyint(1) NULL AFTER `reset_price`;
 
