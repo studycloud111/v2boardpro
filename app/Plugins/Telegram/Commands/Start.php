@@ -35,9 +35,10 @@ class Start
             'inline_keyboard' => $keyboard
         ];
 
+        $appName = config('v2board.app_name', 'FSCloud');
         $this->telegramService->sendMessage(
             $message->chat_id,
-            $this->getOwnerGreeting($message, $user) . "\n\n🌟 **欢迎使用 FSCloud** 🌟\n\n💫 请选择您需要的服务：",
+            $this->getOwnerGreeting($message, $user) . "\n\n🌟 **欢迎使用 {$appName}** 🌟\n\n💫 请选择您需要的服务：",
             'markdown',
             $replyMarkup
         );
@@ -148,10 +149,11 @@ class Start
                     'inline_keyboard' => $keyboard
                 ];
 
+                $appName = config('v2board.app_name', 'FSCloud');
                 $this->telegramService->editMessageText(
                     $message->chat_id,
                     $message->message_id,
-                    $this->getOwnerGreeting($message, $user) . "\n\n🌟 **欢迎使用 FSCloud** 🌟\n\n💫 请选择您需要的服务：",
+                    $this->getOwnerGreeting($message, $user) . "\n\n🌟 **欢迎使用 {$appName}** 🌟\n\n💫 请选择您需要的服务：",
                     'markdown',
                     $replyMarkup
                 );
@@ -293,7 +295,8 @@ class Start
                 $announcement = "🎉 签到播报！ **{$userName}** 刚刚获得了 `{$traffic} MB` 流量！\n\n";
             }
             
-            $text = $announcement . $this->getOwnerGreeting($message, $user) . "\n\n🌟 **欢迎使用 FSCloud** 🌟\n\n💫 请选择您需要的服务：";
+            $appName = config('v2board.app_name', 'FSCloud');
+            $text = $announcement . $this->getOwnerGreeting($message, $user) . "\n\n🌟 **欢迎使用 {$appName}** 🌟\n\n💫 请选择您需要的服务：";
 
             try {
                 $this->telegramService->editMessageText(
