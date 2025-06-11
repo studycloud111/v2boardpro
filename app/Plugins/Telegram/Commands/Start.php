@@ -35,7 +35,7 @@ class Start
             'inline_keyboard' => $keyboard
         ];
 
-        $appName = config('v2board.app_name', 'FSCloud');
+        $appName = config('v2board.app_name', 'v2board');
         $this->telegramService->sendMessage(
             $message->chat_id,
             $this->getOwnerGreeting($message, $user) . "\n\n🌟 **欢迎使用 {$appName}** 🌟\n\n💫 请选择您需要的服务：",
@@ -149,7 +149,7 @@ class Start
                     'inline_keyboard' => $keyboard
                 ];
 
-                $appName = config('v2board.app_name', 'FSCloud');
+                $appName = config('v2board.app_name', 'v2board');
                 $this->telegramService->editMessageText(
                     $message->chat_id,
                     $message->message_id,
@@ -295,7 +295,7 @@ class Start
                 $announcement = "🎉 签到播报！ **{$userName}** 刚刚获得了 `{$traffic} MB` 流量！\n\n";
             }
             
-            $appName = config('v2board.app_name', 'FSCloud');
+            $appName = config('v2board.app_name', 'v2board');
             $text = $announcement . $this->getOwnerGreeting($message, $user) . "\n\n🌟 **欢迎使用 {$appName}** 🌟\n\n💫 请选择您需要的服务：";
 
             try {
