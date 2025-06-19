@@ -24,6 +24,7 @@ class CommController extends Controller
                 'app_url' => config('v2board.app_url'),
                 'app_name' => config('v2board.app_name', 'V2Board'),
                 'logo' => config('v2board.logo'),
+                'deposit_bounus' => config('v2board.deposit_bounus', [])
             ]
         ]);
     }
