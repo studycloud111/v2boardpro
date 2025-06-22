@@ -573,8 +573,10 @@ class Start
             $user->refresh();
 
             $cost = $gb * 1024 * 1024 * 1024;
-            if ($user->transfer_enable < $cost) {
-                $this->telegramService->answerCallbackQuery($message->id, '您的流量不足，无法参与本次游戏。', true);
+            // 计算剩余流量
+            $remaining = $user->transfer_enable - ($user->u + $user->d);
+            if ($remaining < $cost) {
+                $this->telegramService->answerCallbackQuery($message->id, '您的剩余流量不足，无法参与本次游戏。', true);
                 return;
             }
 
@@ -592,7 +594,10 @@ class Start
             $prizeGb = round($prizeGb, 2);
             
             $prizeBytes = (int)($prizeGb * 1024 * 1024 * 1024);
-            $user->transfer_enable = $user->transfer_enable - $cost + $prizeBytes;
+            // 先增加已使用流量（消耗游戏流量）
+            $user->u += $cost;
+            // 再减少已使用流量（奖励流量），但不能让已使用流量变成负数
+            $user->u = max(0, $user->u - $prizeBytes);
             
             if (!$user->save()) {
                 $this->telegramService->answerCallbackQuery($message->id, '游戏失败，数据保存时出错，请稍后再试。', true);
@@ -1109,13 +1114,15 @@ class Start
             }
 
             $cost = $gb * 1024 * 1024 * 1024;
-            if ($user->transfer_enable < $cost) {
-                $this->telegramService->answerCallbackQuery($message->id, '您的流量不足，无法参与本次竞猜。', true);
+            // 计算剩余流量
+            $remaining = $user->transfer_enable - ($user->u + $user->d);
+            if ($remaining < $cost) {
+                $this->telegramService->answerCallbackQuery($message->id, '您的剩余流量不足，无法参与本次竞猜。', true);
                 return;
             }
 
-            // 扣除用户流量
-            $user->transfer_enable -= $cost;
+            // 增加已使用流量（参与竞猜消耗）
+            $user->u += $cost;
             if (!$user->save()) {
                 $this->telegramService->answerCallbackQuery($message->id, '参与失败，数据保存时出错，请稍后再试。', true);
                 return;
