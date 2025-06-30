@@ -14,13 +14,13 @@ class DailyContestDraw extends Command
 
     public function handle()
     {
-        // 如果指定了日期参数，使用指定日期；否则使用昨天
+        // 如果指定了日期参数，使用指定日期；否则使用当天（而非前一天）
         $dateOption = $this->option('date');
         if ($dateOption) {
             $drawDate = $dateOption;
             $this->info("开始处理指定日期 {$drawDate} 的竞猜开奖...");
         } else {
-            $drawDate = date('Y-m-d', strtotime('-1 day'));
+            $drawDate = date('Y-m-d'); // 修改为当天
             $this->info("开始处理 {$drawDate} 的竞猜开奖...");
         }
 
@@ -338,7 +338,9 @@ class DailyContestDraw extends Command
                     // 发放流星雨奖励
                     $user = User::find($userId);
                     if ($user) {
-                        $user->transfer_enable += $bonusTraffic * 1024 * 1024 * 1024;
+                        // 修改：不再增加总流量，而是减少已使用流量
+                        $bonusBytes = $bonusTraffic * 1024 * 1024 * 1024;
+                        $user->u = max(0, $user->u - $bonusBytes);
                         $user->save();
                     }
                 }
@@ -414,7 +416,9 @@ class DailyContestDraw extends Command
             $userId = array_keys($allParticipants)[$userIndex];
             $user = User::find($userId);
             if ($user) {
-                $user->transfer_enable += $bonusTraffic * 1024 * 1024 * 1024;
+                // 修改：不再增加总流量，而是减少已使用流量
+                $bonusBytes = $bonusTraffic * 1024 * 1024 * 1024;
+                $user->u = max(0, $user->u - $bonusBytes);
                 $user->save();
             }
         }
@@ -455,7 +459,9 @@ class DailyContestDraw extends Command
         if ($prizeType === 1) {
             // 超级流量奖励
             $superBonus = rand(100, 200); // 100-200GB
-            $luckyUser->transfer_enable += $superBonus * 1024 * 1024 * 1024;
+            // 修改：不再增加总流量，而是减少已使用流量
+            $bonusBytes = $superBonus * 1024 * 1024 * 1024;
+            $luckyUser->u = max(0, $luckyUser->u - $bonusBytes);
             $prizeDesc = "{$superBonus}GB 超级流量";
         } else {
             // 超级时间奖励
@@ -486,7 +492,9 @@ class DailyContestDraw extends Command
         if (!$user) return;
 
         if ($type === 'traffic') {
-            $user->transfer_enable += $prize * 1024 * 1024 * 1024;
+            // 修改：不再增加总流量，而是减少已使用流量
+            $bonusBytes = $prize * 1024 * 1024 * 1024;
+            $user->u = max(0, $user->u - $bonusBytes);
         } else { // time
             $user->expired_at += $prize * 86400;
         }

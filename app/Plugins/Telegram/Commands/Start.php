@@ -279,7 +279,8 @@ class Start
             }
 
             $traffic = rand(config('v2board.checkin_min', 100), config('v2board.checkin_max', 500));
-            $user->transfer_enable += $traffic * 1024 * 1024;
+            // 修改：不再增加总流量，而是减少已使用流量
+            $user->u = max(0, $user->u - ($traffic * 1024 * 1024));
             if (!$user->save()) {
                 $this->telegramService->answerCallbackQuery($message->id, '签到失败，数据保存时出错，请稍后再试。', true);
                 return;
