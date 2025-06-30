@@ -21,9 +21,13 @@ class Start
     {
         $user = User::where('telegram_id', $message->from_id)->first();
         if (!$user) {
+            // 获取机器人信息
+            $botInfo = $this->telegramService->getMe();
+            $botUsername = $botInfo->result->username ?? '机器人';
+            
             $this->telegramService->sendMessage(
                 $message->chat_id,
-                "您好，您尚未绑定账号。\n请使用 `/bind <订阅链接>` 进行绑定。",
+                "您好，您尚未绑定账号。\n请私聊 @{$botUsername} 然后发送 `/bind <订阅链接>` 进行绑定。",
                 'markdown'
             );
             return;
