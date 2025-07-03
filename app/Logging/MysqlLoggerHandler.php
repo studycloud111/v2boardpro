@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Monolog\Handler\AbstractProcessingHandler;
 use Monolog\Logger;
+use Monolog\LogRecord;
 use App\Models\Log as LogModel;
 
 class MysqlLoggerHandler extends AbstractProcessingHandler
@@ -14,24 +15,27 @@ class MysqlLoggerHandler extends AbstractProcessingHandler
         parent::__construct($level, $bubble);
     }
 
-    protected function write(array $record): void
+    protected function write(LogRecord $record): void
     {
         try{
-            if(isset($record['context']['exception']) && is_object($record['context']['exception'])){
-                $record['context']['exception'] = (array)$record['context']['exception'];
+            $recordArray = $record->toArray();
+            
+            if(isset($recordArray['context']['exception']) && is_object($recordArray['context']['exception'])){
+                $recordArray['context']['exception'] = (array)$recordArray['context']['exception'];
             }
-            $record['request_data'] = request()->all() ??[];
+            
+            $recordArray['request_data'] = request()->all() ??[];
             $log = [
-                'title' => $record['message'],
-                'level' => $record['level_name'],
-                'host' => $record['request_host'] ?? request()->getSchemeAndHttpHost(),
-                'uri' => $record['request_uri'] ?? request()->getRequestUri(),
-                'method' => $record['request_method'] ?? request()->getMethod(),
+                'title' => $recordArray['message'],
+                'level' => $recordArray['level_name'],
+                'host' => $recordArray['request_host'] ?? request()->getSchemeAndHttpHost(),
+                'uri' => $recordArray['request_uri'] ?? request()->getRequestUri(),
+                'method' => $recordArray['request_method'] ?? request()->getMethod(),
                 'ip' => request()->getClientIp(),
-                'data' => json_encode($record['request_data']) ,
-                'context' => isset($record['context']) ? json_encode($record['context']) : '',
-                'created_at' => strtotime($record['datetime']),
-                'updated_at' => strtotime($record['datetime']),
+                'data' => json_encode($recordArray['request_data']),
+                'context' => isset($recordArray['context']) ? json_encode($recordArray['context']) : '',
+                'created_at' => strtotime($recordArray['datetime']),
+                'updated_at' => strtotime($recordArray['datetime']),
             ];
 
             LogModel::insert(
