@@ -1,0 +1,8 @@
+# V2BoardPro Laravel 调度器
+* * * * * cd /path/to/your/v2boardpro && php artisan schedule:run >> /dev/null 2>&1
+
+# 注意：请将 /path/to/your/v2boardpro 替换为实际的项目路径
+# 安装方法：
+# 1. 编辑crontab：crontab -e
+# 2. 粘贴上面的配置（替换实际路径）
+# 3. 保存并退出 

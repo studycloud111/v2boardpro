@@ -6,7 +6,6 @@ use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
 use Illuminate\Support\Arr;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Throwable;
-use Facade\Ignition\Exceptions\ViewException;
 
 class Handler extends ExceptionHandler
 {
@@ -20,14 +19,29 @@ class Handler extends ExceptionHandler
     ];
 
     /**
-     * A list of the inputs that are never flashed for validation exceptions.
+     * The list of the inputs that are never flashed to the session on validation exceptions.
      *
-     * @var array
+     * @var array<int, string>
      */
     protected $dontFlash = [
+        'current_password',
         'password',
         'password_confirmation',
     ];
+
+    /**
+     * Register the exception handling callbacks for the application.
+     */
+    public function register(): void
+    {
+        $this->reportable(function (Throwable $e) {
+            //
+        });
+
+        $this->renderable(function (\Spatie\LaravelIgnition\Exceptions\ViewException $e, $request) {
+            abort(500, "主题渲染失败。如更新主题，参数可能发生变化请重新配置主题后再试。");
+        });
+    }
 
     /**
      * Report or log an exception.
@@ -37,7 +51,7 @@ class Handler extends ExceptionHandler
      *
      * @throws \Throwable
      */
-    public function report(Throwable $exception)
+    public function report(Throwable $exception): void
     {
         parent::report($exception);
     }
@@ -53,14 +67,16 @@ class Handler extends ExceptionHandler
      */
     public function render($request, Throwable $exception)
     {
-        if ($exception instanceof ViewException) {
-            abort(500, "主题渲染失败。如更新主题，参数可能发生变化请重新配置主题后再试。");
-        }
         return parent::render($request, $exception);
     }
 
-
-    protected function convertExceptionToArray(Throwable $e)
+    /**
+     * Convert an exception to an array for JSON responses.
+     *
+     * @param  \Throwable  $e
+     * @return array
+     */
+    protected function convertExceptionToArray(Throwable $e): array
     {
         return config('app.debug') ? [
             'message' => $e->getMessage(),

@@ -1,0 +1,33 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# V2BoardPro 项目结构
+
+V2BoardPro 是一个基于 Laravel 框架的代理服务管理系统。以下是项目的主要结构：
+
+## 核心目录
+
+- `app/` - 应用程序核心代码
+  - `Console/Commands/` - 命令行工具，包含各种定时任务和维护脚本
+  - `Http/Controllers/` - API控制器，按版本和用户角色分类
+  - `Models/` - 数据模型，对应数据库表
+  - `Services/` - 业务逻辑服务层
+  - `Utils/` - 工具类和辅助函数
+
+- `config/` - 配置文件目录
+- `database/` - 数据库迁移和种子文件
+- `public/` - 公共资源目录
+- `resources/` - 前端资源和视图模板
+- `routes/` - 路由定义
+
+## 入口文件
+
+系统主入口是 [public/index.php](mdc:public/index.php)，遵循Laravel框架标准结构。
+
+## 关键配置文件
+
+- [config/app.php](mdc:config/app.php) - 应用程序基本配置
+- [config/database.php](mdc:config/database.php) - 数据库配置
+
