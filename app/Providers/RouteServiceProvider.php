@@ -20,15 +20,6 @@ class RouteServiceProvider extends ServiceProvider
     public const HOME = '/home';
 
     /**
-     * This namespace is applied to your controller routes.
-     *
-     * In addition, it is set as the URL generator's root namespace.
-     *
-     * @var string
-     */
-    protected $namespace = 'App\Http\Controllers';
-
-    /**
      * Define your route model bindings, pattern filters, and other route configuration.
      */
     public function boot(): void
@@ -64,7 +55,6 @@ class RouteServiceProvider extends ServiceProvider
     protected function mapWebRoutes(): void
     {
         Route::middleware('web')
-            ->namespace($this->namespace)
             ->group(base_path('routes/web.php'));
     }
 
@@ -78,18 +68,15 @@ class RouteServiceProvider extends ServiceProvider
         Route::group([
             'prefix' => '/api/v1',
             'middleware' => 'api',
-            'namespace' => $this->namespace
         ], function ($router) {
             foreach (glob(app_path('Http//Routes//V1') . '/*.php') as $file) {
                 $this->app->make('App\\Http\\Routes\\V1\\' . basename($file, '.php'))->map($router);
             }
         });
 
-
         Route::group([
             'prefix' => '/api/v2',
             'middleware' => 'api',
-            'namespace' => $this->namespace
         ], function ($router) {
             foreach (glob(app_path('Http//Routes//V2') . '/*.php') as $file) {
                 $this->app->make('App\\Http\\Routes\\V2\\' . basename($file, '.php'))->map($router);
