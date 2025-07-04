@@ -14,13 +14,15 @@ use App\Services\AuthService;
 use App\Utils\CacheKey;
 use App\Utils\Dict;
 use App\Utils\Helper;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Cache;
 use ReCaptcha\ReCaptcha;
 
 class AuthController extends Controller
 {
-    public function loginWithMailLink(Request $request)
+    public function loginWithMailLink(Request $request): JsonResponse
     {
         if (!(int)config('v2board.login_with_mail_link_enable')) {
             abort(404);
@@ -36,7 +38,7 @@ class AuthController extends Controller
 
         $user = User::where('email', $params['email'])->first();
         if (!$user) {
-            return response([
+            return response()->json([
                 'data' => true
             ]);
         }
@@ -67,13 +69,13 @@ class AuthController extends Controller
             ]
         ]);
 
-        return response([
+        return response()->json([
             'data' => $link
         ]);
 
     }
 
-    public function register(AuthRegister $request)
+    public function register(AuthRegister $request): JsonResponse
     {
         if ((int)config('v2board.register_limit_by_ip_enable', 0)) {
             $registerCountByIP = Cache::get(CacheKey::get('REGISTER_IP_RATE_LIMIT', $request->ip())) ?? 0;
@@ -186,7 +188,7 @@ class AuthController extends Controller
         ]);
     }
 
-    public function login(AuthLogin $request)
+    public function login(AuthLogin $request): JsonResponse
     {
         $email = $request->input('email');
         $password = $request->input('password');
@@ -225,7 +227,7 @@ class AuthController extends Controller
         }
 
         $authService = new AuthService($user);
-        return response([
+        return response()->json([
             'data' => $authService->generateAuthData($request)
         ]);
     }

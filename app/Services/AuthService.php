@@ -12,14 +12,14 @@ use Illuminate\Http\Request;
 
 class AuthService
 {
-    private $user;
+    private User $user;
 
     public function __construct(User $user)
     {
         $this->user = $user;
     }
 
-    public function generateAuthData(Request $request)
+    public function generateAuthData(Request $request): array
     {
         $guid = Helper::guid();
         $authData = JWT::encode([
@@ -39,7 +39,7 @@ class AuthService
         ];
     }
 
-    public static function decryptAuthData($jwt)
+    public static function decryptAuthData(string $jwt): array|false
     {
         try {
             if (!Cache::has($jwt)) {
@@ -61,14 +61,14 @@ class AuthService
         }
     }
 
-    private static function checkSession($userId, $session)
+    private static function checkSession(int $userId, string $session): bool
     {
         $sessions = (array)Cache::get(CacheKey::get("USER_SESSIONS", $userId)) ?? [];
         if (!in_array($session, array_keys($sessions))) return false;
         return true;
     }
 
-    private static function addSession($userId, $guid, $meta)
+    private static function addSession(int $userId, string $guid, array $meta): bool
     {
         $cacheKey = CacheKey::get("USER_SESSIONS", $userId);
         $sessions = (array)Cache::get($cacheKey, []);
@@ -80,12 +80,12 @@ class AuthService
         return true;
     }
 
-    public function getSessions()
+    public function getSessions(): array
     {
         return (array)Cache::get(CacheKey::get("USER_SESSIONS", $this->user->id), []);
     }
 
-    public function removeSession($sessionId)
+    public function removeSession(string $sessionId): bool
     {
         $cacheKey = CacheKey::get("USER_SESSIONS", $this->user->id);
         $sessions = (array)Cache::get($cacheKey, []);
@@ -97,7 +97,7 @@ class AuthService
         return true;
     }
 
-    public function removeAllSession()
+    public function removeAllSession(): bool
     {
         $cacheKey = CacheKey::get("USER_SESSIONS", $this->user->id);
         $sessions = (array)Cache::get($cacheKey, []);
