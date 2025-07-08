@@ -12,9 +12,6 @@ class User extends Model
     protected $casts = [
         'created_at' => 'timestamp',
         'updated_at' => 'timestamp',
-        'banned' => 'boolean',
-        'is_admin' => 'boolean',
-        'is_staff' => 'boolean',
         'expired_at' => 'timestamp',
         'transfer_enable' => 'integer',
         'device_limit' => 'integer',

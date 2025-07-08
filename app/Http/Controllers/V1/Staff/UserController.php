@@ -94,7 +94,7 @@ class UserController extends Controller
         $this->filter($request, $builder);
         try {
             $builder->update([
-                'banned' => true
+                'banned' => 1
             ]);
         } catch (\Exception $e) {
             abort(500, '处理失败');
