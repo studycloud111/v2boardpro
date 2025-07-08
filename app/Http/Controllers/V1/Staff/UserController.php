@@ -30,6 +30,10 @@ class UserController extends Controller
     public function update(UserUpdate $request)
     {
         $params = $request->validated();
+        
+        // Staff 用户不能修改管理员权限，移除这些字段
+        unset($params['is_admin'], $params['is_staff']);
+        
         $user = User::find($request->input('id'));
         if (!$user) {
             abort(500, '用户不存在');
