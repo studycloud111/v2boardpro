@@ -154,7 +154,7 @@ class UserController extends Controller
             $params['invite_user_id'] = null;
         }
 
-        if (isset($params['banned']) && (int)$params['banned'] === 1) {
+        if (isset($params['banned']) && $params['banned']) {
             $authService = new AuthService($user);
             $authService->removeAllSession();
         }
@@ -312,7 +312,7 @@ class UserController extends Controller
                 $authService->removeAllSession();
             });
             $builder->update([
-                'banned' => 1
+                'banned' => true
             ]);
         } catch (\Exception $e) {
             abort(500, '处理失败');
