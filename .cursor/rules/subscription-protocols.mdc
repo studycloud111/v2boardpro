@@ -3,3 +3,28 @@ description:
 globs:
 alwaysApply: false
 ---
+# 订阅协议系统
+
+V2BoardPro支持多种客户端订阅协议，用于生成不同客户端软件可用的配置。
+
+## 协议实现
+
+所有协议实现位于 [app/Protocols/](mdc:app/Protocols/) 目录下：
+
+- [app/Protocols/Clash.php](mdc:app/Protocols/Clash.php) - Clash客户端
+- [app/Protocols/ClashMeta.php](mdc:app/Protocols/ClashMeta.php) - ClashMeta客户端
+- [app/Protocols/Shadowrocket.php](mdc:app/Protocols/Shadowrocket.php) - Shadowrocket客户端
+- [app/Protocols/Surge.php](mdc:app/Protocols/Surge.php) - Surge客户端
+- [app/Protocols/V2rayN.php](mdc:app/Protocols/V2rayN.php) - V2rayN客户端
+- [app/Protocols/Singbox/Singbox.php](mdc:app/Protocols/Singbox/Singbox.php) - Sing-box客户端
+
+## 订阅控制器
+
+订阅相关控制器: [app/Http/Controllers/V1/User/ClientController.php](mdc:app/Http/Controllers/V1/User/ClientController.php)
+
+## 订阅规则模板
+
+订阅规则模板位于 [resources/rules/](mdc:resources/rules/) 目录下：
+- [resources/rules/default.clash.yaml](mdc:resources/rules/default.clash.yaml) - Clash默认规则
+- [resources/rules/default.sing-box.json](mdc:resources/rules/default.sing-box.json) - Sing-box默认规则
+- [resources/rules/default.surge.conf](mdc:resources/rules/default.surge.conf) - Surge默认规则

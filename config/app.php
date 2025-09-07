@@ -237,5 +237,5 @@ return [
     | The only modification by laravel config
     |
     */
-    'version' => '1.7.5.2685.1112-L12'
+    'version' => '1.7.5.2685.1122' // Updated from upstream
 ];

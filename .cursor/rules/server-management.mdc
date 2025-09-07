@@ -3,3 +3,32 @@ description:
 globs:
 alwaysApply: false
 ---
+# 服务器管理系统
+
+V2BoardPro支持多种类型的代理服务器管理，包括Shadowsocks、Trojan、VMess、VLess、Hysteria和TUIC等协议。
+
+## 服务器模型
+
+- [app/Models/ServerShadowsocks.php](mdc:app/Models/ServerShadowsocks.php) - Shadowsocks服务器
+- [app/Models/ServerTrojan.php](mdc:app/Models/ServerTrojan.php) - Trojan服务器
+- [app/Models/ServerVmess.php](mdc:app/Models/ServerVmess.php) - VMess服务器
+- [app/Models/ServerVless.php](mdc:app/Models/ServerVless.php) - VLess服务器
+- [app/Models/ServerHysteria.php](mdc:app/Models/ServerHysteria.php) - Hysteria服务器
+- [app/Models/ServerTuic.php](mdc:app/Models/ServerTuic.php) - TUIC服务器
+- [app/Models/ServerGroup.php](mdc:app/Models/ServerGroup.php) - 服务器分组
+- [app/Models/ServerRoute.php](mdc:app/Models/ServerRoute.php) - 服务器路由
+
+## 服务器控制器
+
+服务器管理控制器位于 [app/Http/Controllers/V1/Admin/Server](mdc:app/Http/Controllers/V1/Admin/Server/) 目录下。
+
+## 服务器服务
+
+服务器业务逻辑封装在 [app/Services/ServerService.php](mdc:app/Services/ServerService.php)
+
+## 流量统计
+
+服务器流量统计相关功能：
+- 模型: [app/Models/StatServer.php](mdc:app/Models/StatServer.php)
+- 作业: [app/Jobs/TrafficFetchJob.php](mdc:app/Jobs/TrafficFetchJob.php)
+- 统计: [app/Services/StatisticalService.php](mdc:app/Services/StatisticalService.php)

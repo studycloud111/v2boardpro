@@ -3,3 +3,33 @@ description:
 globs:
 alwaysApply: false
 ---
+# 支付系统
+
+V2BoardPro支持多种支付方式，包括支付宝、微信支付、加密货币支付等。
+
+## 支付模型
+
+- [app/Models/Payment.php](mdc:app/Models/Payment.php) - 支付方式配置
+- [app/Models/Order.php](mdc:app/Models/Order.php) - 订单数据
+
+## 支付处理器
+
+支付处理器位于 [app/Payments/](mdc:app/Payments/) 目录下，包括：
+- [app/Payments/AlipayF2F.php](mdc:app/Payments/AlipayF2F.php) - 支付宝当面付
+- [app/Payments/WechatPayNative.php](mdc:app/Payments/WechatPayNative.php) - 微信支付
+- [app/Payments/StripeCredit.php](mdc:app/Payments/StripeCredit.php) - Stripe信用卡支付
+- [app/Payments/CoinPayments.php](mdc:app/Payments/CoinPayments.php) - 加密货币支付
+
+## 支付控制器
+
+- 支付相关控制器: [app/Http/Controllers/V1/Guest/PaymentController.php](mdc:app/Http/Controllers/V1/Guest/PaymentController.php)
+- 订单控制器: [app/Http/Controllers/V1/User/OrderController.php](mdc:app/Http/Controllers/V1/User/OrderController.php)
+
+## 支付服务
+
+支付业务逻辑封装在 [app/Services/PaymentService.php](mdc:app/Services/PaymentService.php)
+订单业务逻辑封装在 [app/Services/OrderService.php](mdc:app/Services/OrderService.php)
+
+## 订单处理
+
+订单处理作业: [app/Jobs/OrderHandleJob.php](mdc:app/Jobs/OrderHandleJob.php)

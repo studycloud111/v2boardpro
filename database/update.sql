@@ -820,4 +820,11 @@ CREATE TABLE IF NOT EXISTS `v2_giftcard_user` (
   INDEX `user_id` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- User table improvements
 ALTER TABLE `v2_user` ADD INDEX `telegram_id` (`telegram_id`);
+ALTER TABLE `v2_user` ADD UNIQUE `token` (`token`); -- Added from upstream for security
+
+-- Order table performance improvements from upstream
+ALTER TABLE `v2_order` 
+ADD INDEX idx_user (`user_id`),
+ADD INDEX idx_user_status (`user_id`, `status`);

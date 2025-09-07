@@ -3,3 +3,37 @@ description:
 globs:
 alwaysApply: false
 ---
+# 技术文档查找指南
+
+在开发V2BoardPro项目时，需要查找技术文档时应使用context7工具。
+
+## 使用context7查找文档
+
+使用以下步骤查找技术文档：
+
+1. 首先使用`mcp_context7_resolve-library-id`工具解析库ID：
+```
+mcp_context7_resolve-library-id(libraryName: "要查找的库名称")
+```
+
+2. 然后使用`mcp_context7_get-library-docs`工具获取文档内容：
+```
+mcp_context7_get-library-docs(context7CompatibleLibraryID: "从上一步获取的库ID", tokens: 10000, topic: "可选的主题")
+```
+
+## 常用技术库
+
+开发中可能需要查询的常用库：
+
+- Laravel - PHP框架
+- Vue.js - 前端框架
+- MySQL - 数据库
+- Redis - 缓存系统
+- Stripe - 支付处理
+- Shadowsocks/V2Ray - 代理协议
+
+## 示例
+
+如需查找Laravel文档：
+1. 先解析库ID: `mcp_context7_resolve-library-id(libraryName: "Laravel")`
+2. 获取文档: `mcp_context7_get-library-docs(context7CompatibleLibraryID: "获取到的ID")`

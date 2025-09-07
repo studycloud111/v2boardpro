@@ -27,6 +27,7 @@ class UserRoute
             $router->get ('/unbindTelegram', [UserController::class, 'unbindTelegram']);
             $router->get ('/resetSecurity', [UserController::class, 'resetSecurity']);
             $router->get ('/info', [UserController::class, 'info']);
+            $router->post('/newPeriod', [UserController::class, 'newPeriod']); // Added from upstream
             $router->post('/redeemgiftcard', [UserController::class, 'redeemgiftcard']);
             $router->post('/changePassword', [UserController::class, 'changePassword']);
             $router->post('/update', [UserController::class, 'update']);

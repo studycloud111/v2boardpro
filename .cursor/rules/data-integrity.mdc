@@ -3,3 +3,40 @@ description:
 globs:
 alwaysApply: false
 ---
+# 数据完整性指南
+
+V2BoardPro系统中的数据完整性是至关重要的，特别是在进行用户删除、订单处理等操作时。
+
+## 用户删除与数据完整性
+
+当删除用户时，系统会处理以下关联数据以保持数据完整性：
+
+1. **用户会话**: 通过 [app/Services/AuthService.php](mdc:app/Services/AuthService.php) 中的 `removeAllSession` 方法清除
+2. **订单数据**: 删除用户的所有订单记录
+3. **邀请码**: 删除用户的所有邀请码
+4. **工单系统**: 删除用户的工单及相关消息
+5. **邀请关系**: 更新其他用户的邀请人ID为null
+
+然而，以下数据可能不会被完全清理，可能导致数据不完整：
+
+1. **统计数据**: [app/Models/StatUser.php](mdc:app/Models/StatUser.php) 中的用户统计数据
+2. **佣金记录**: [app/Models/CommissionLog.php](mdc:app/Models/CommissionLog.php) 中的佣金记录
+3. **礼品卡使用记录**: `v2_giftcard_user` 表中的记录
+4. **缓存数据**: 在 [app/Services/StatisticalService.php](mdc:app/Services/StatisticalService.php) 中的缓存统计数据
+
+## 数据库事务
+
+系统在关键操作中使用事务确保数据完整性：
+
+```php
+DB::beginTransaction();
+try {
+    // 数据操作
+    DB::commit();
+} catch (\Exception $e) {
+    DB::rollBack();
+    abort(500, '操作失败');
+}
+```
+
+这种模式在用户删除、订单处理等关键操作中被广泛使用，确保数据的原子性。

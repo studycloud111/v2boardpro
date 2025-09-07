@@ -3,3 +3,30 @@ description:
 globs:
 alwaysApply: false
 ---
+# 用户管理系统
+
+V2BoardPro的用户管理是系统的核心部分，涉及用户的创建、认证、权限管理和数据处理。
+
+## 用户模型
+
+用户模型定义在 [app/Models/User.php](mdc:app/Models/User.php)，对应数据库表 `v2_user`。
+
+## 用户控制器
+
+- 管理员操作用户: [app/Http/Controllers/V1/Admin/UserController.php](mdc:app/Http/Controllers/V1/Admin/UserController.php)
+- 用户自我管理: [app/Http/Controllers/V1/User/UserController.php](mdc:app/Http/Controllers/V1/User/UserController.php)
+- 认证相关: [app/Http/Controllers/V1/Passport/AuthController.php](mdc:app/Http/Controllers/V1/Passport/AuthController.php)
+
+## 用户服务
+
+用户业务逻辑封装在 [app/Services/UserService.php](mdc:app/Services/UserService.php)
+
+## 用户数据完整性
+
+删除用户时，系统会同时处理以下关联数据，以保持数据完整性：
+- 订单数据 (Order)
+- 邀请码 (InviteCode)
+- 工单及消息 (Ticket, TicketMessage)
+- 邀请关系 (其他用户的invite_user_id)
+
+但需要注意，某些统计数据和历史记录（如佣金记录、统计数据）可能不会被完全清理，可能导致数据不完整。
