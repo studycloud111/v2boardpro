@@ -85,6 +85,8 @@ class UserController extends Controller
             if ($res[$i]->plan) {
                 $res[$i]['plan_name'] = $res[$i]->plan->name;
             }
+            // 🛡️ 兼容性保护：确保API返回格式完全一致，隐藏预加载的plan对象
+            $res[$i]->makeHidden(['plan']);
             //统计在线设备
             $countalive = 0;
             $ips = [];
