@@ -15,6 +15,7 @@ use App\Models\Plan;
 use App\Models\TicketMessage;
 use App\Models\User;
 use App\Services\AuthService;
+use App\Services\UserDeletionService;
 use App\Utils\Helper;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -330,61 +331,67 @@ class UserController extends Controller
         $builder = User::orderBy($sort, $sortType);
         $this->filter($request, $builder);
 
-        DB::beginTransaction();
         try {
-            $builder->each(function ($user){
-                $authService = new AuthService($user);
-                $authService->removeAllSession();
-                Order::where('user_id', $user->id)->delete();
-                InviteCode::where('user_id', $user->id)->delete();
-                $tickets = Ticket::where('user_id', $user->id)->get();
-                foreach($tickets as $ticket) {
-                    TicketMessage::where('ticket_id', $ticket->id)->delete();
-                }
-                Ticket::where('user_id', $user->id)->delete();
-                User::where('invite_user_id', $user->id)->update(['invite_user_id' => null]);
-            });
-            $builder->delete();
-            DB::commit();
+            $userDeletionService = new UserDeletionService();
+            $deletedCount = $userDeletionService->batchDeleteUsersInChunks($builder, 50);
+            
+            return response([
+                'data' => true,
+                'message' => "成功删除 {$deletedCount} 个用户"
+            ]);
         } catch (\Exception $e) {
-            DB::rollBack();
-            abort(500, '批量删除用户信息失败');
-        }  
+            abort(500, '批量删除用户信息失败: ' . $e->getMessage());
+        }
+    }
 
-        return response([
-            'data' => true
-        ]);
+    public function getUserDeletionStats(Request $request)
+    {
+        $userId = $request->input('id');
+        if (!$userId) {
+            abort(500, '参数错误');
+        }
+
+        $user = User::find($userId);
+        if (!$user) {
+            abort(500, '用户不存在');
+        }
+
+        try {
+            $userDeletionService = new UserDeletionService();
+            $stats = $userDeletionService->getUserDeletionStats($userId);
+            
+            return response([
+                'data' => [
+                    'user_info' => [
+                        'id' => $user->id,
+                        'email' => $user->email,
+                        'created_at' => $user->created_at
+                    ],
+                    'related_data' => $stats,
+                    'total_records' => array_sum($stats)
+                ]
+            ]);
+        } catch (\Exception $e) {
+            abort(500, $e->getMessage());
+        }
     }
 
     public function delUser(Request $request)
     {
-        $user = User::find($request->input('id'));
-        if (!$user) {
-            abort(500, '用户不存在');
-        }
-        DB::beginTransaction();
-        try {
-            $authService = new AuthService($user);
-            $authService->removeAllSession();
-            Order::where('user_id', $request->input('id'))->delete();
-            User::where('invite_user_id', $request->input('id'))->update(['invite_user_id' => null]);
-            InviteCode::where('user_id', $request->input('id'))->delete();
-            
-            $tickets = Ticket::where('user_id', $request->input('id'))->get();
-            foreach($tickets as $ticket) {
-                TicketMessage::where('ticket_id', $ticket->id)->delete();
-            }
-            Ticket::where('user_id', $request->input('id'))->delete();
-    
-            $user->delete();
-            DB::commit();
-        } catch (\Exception $e) {
-            DB::rollBack();
-            abort(500, '删除用户失败');
+        $userId = $request->input('id');
+        if (!$userId) {
+            abort(500, '参数错误');
         }
 
-        return response([
-            'data' => true
-        ]);
+        try {
+            $userDeletionService = new UserDeletionService();
+            $userDeletionService->deleteUser($userId);
+            
+            return response([
+                'data' => true
+            ]);
+        } catch (\Exception $e) {
+            abort(500, $e->getMessage());
+        }
     }
 }
