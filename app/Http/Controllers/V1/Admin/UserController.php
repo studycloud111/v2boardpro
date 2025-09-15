@@ -196,15 +196,15 @@ class UserController extends Controller
 
         $data = "邮箱,余额,推广佣金,总流量,设备数限制,剩余流量,套餐到期时间,订阅计划,订阅地址\r\n";
         foreach($res as $user) {
-            $expireDate = $user['expired_at'] === NULL ? '长期有效' : date('Y-m-d H:i:s', $user['expired_at']);
-            $balance = $user['balance'] / 100;
-            $commissionBalance = $user['commission_balance'] / 100;
-            $transferEnable = $user['transfer_enable'] ? $user['transfer_enable'] / 1073741824 : 0;
-            $deviceLimit = $user['devce_limit'] ? $user['devce_limit'] : NULL;
-            $notUseFlow = (($user['transfer_enable'] - ($user['u'] + $user['d'])) / 1073741824) ?? 0;
+            $expireDate = $user->expired_at === NULL ? '长期有效' : date('Y-m-d H:i:s', $user->expired_at);
+            $balance = $user->balance / 100;
+            $commissionBalance = $user->commission_balance / 100;
+            $transferEnable = $user->transfer_enable ? $user->transfer_enable / 1073741824 : 0;
+            $deviceLimit = $user->device_limit ? $user->device_limit : NULL;
+            $notUseFlow = (($user->transfer_enable - ($user->u + $user->d)) / 1073741824) ?? 0;
             $planName = $user['plan_name'] ?? '无订阅';
-            $subscribeUrl =  Helper::getSubscribeUrl($user['token']);
-            $data .= "{$user['email']},{$balance},{$commissionBalance},{$transferEnable}, {$deviceLimit}, {$notUseFlow},{$expireDate},{$planName},{$subscribeUrl}\r\n";
+            $subscribeUrl =  Helper::getSubscribeUrl($user->token);
+            $data .= "{$user->email},{$balance},{$commissionBalance},{$transferEnable}, {$deviceLimit}, {$notUseFlow},{$expireDate},{$planName},{$subscribeUrl}\r\n";
 
         }
         echo "\xEF\xBB\xBF" . $data;
