@@ -341,15 +341,9 @@ class ClashMeta
         $array['name'] = $server['name'];
         $array['server'] = $server['host'];
 
+        // 🚀 性能优化：使用统一的端口解析函数
+        $array['port'] = \App\Utils\Helper::parseFirstPort($server['port']);
         $parts = explode(",", $server['port']);
-        $firstPart = $parts[0];
-        if (strpos($firstPart, '-') !== false) {
-            $range = explode('-', $firstPart);
-            $firstPort = $range[0];
-        } else {
-            $firstPort = $firstPart;
-        }
-        $array['port'] = (int)$firstPort;
         if (count($parts) !== 1 || strpos($parts[0], '-') !== false) {
             $array['ports'] = $server['port'];
             $array['mport'] = $server['port'];

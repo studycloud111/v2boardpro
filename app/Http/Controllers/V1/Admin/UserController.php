@@ -80,7 +80,9 @@ class UserController extends Controller
         $res = $userModel->forPage($current, $pageSize)
             ->get();
             
-        for ($i = 0; $i < count($res); $i++) {
+        // 🚀 性能优化：提取count()避免循环中重复计算
+        $resCount = count($res);
+        for ($i = 0; $i < $resCount; $i++) {
             // ✅ 优化后：直接从关联关系获取计划名称，O(1)复杂度
             if ($res[$i]->plan) {
                 $res[$i]['plan_name'] = $res[$i]->plan->name;
@@ -181,7 +183,9 @@ class UserController extends Controller
         $this->filter($request, $userModel);
         $res = $userModel->get();
         
-        for ($i = 0; $i < count($res); $i++) {
+        // 🚀 性能优化：提取count()避免循环中重复计算  
+        $resCount = count($res);
+        for ($i = 0; $i < $resCount; $i++) {
             // ✅ 优化后：直接从关联关系获取计划名称，O(1)复杂度
             if ($res[$i]->plan) {
                 $res[$i]['plan_name'] = $res[$i]->plan->name;

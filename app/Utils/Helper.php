@@ -58,6 +58,25 @@ class Helper
         return $str;
     }
 
+    /**
+     * 🚀 性能优化：统一的端口解析函数，避免在多个协议文件中重复实现
+     * 
+     * @param string $portString 端口字符串，例如："80", "80,443", "8000-8010"
+     * @return int 解析出的第一个端口号
+     */
+    public static function parseFirstPort($portString)
+    {
+        $parts = explode(",", $portString);
+        $firstPart = $parts[0];
+        
+        if (strpos($firstPart, '-') !== false) {
+            $range = explode('-', $firstPart);
+            return (int)$range[0];
+        }
+        
+        return (int)$firstPart;
+    }
+
     public static function multiPasswordVerify($algo, $salt, $password, $hash)
     {
         switch($algo) {
