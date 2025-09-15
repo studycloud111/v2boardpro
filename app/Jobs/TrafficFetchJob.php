@@ -54,14 +54,33 @@ class TrafficFetchJob implements ShouldQueue
         try {
             $pipe->execute();
         } catch (\Exception $e) {
-            // 📊 记录管道执行失败的详细信息，便于问题排查
-            \Log::error('Redis管道执行失败', [
+            // 📊 记录管道执行失败，但不让任务失败重试，避免队列堆积
+            \Log::warning('Redis管道执行失败，回退到单独操作模式', [
                 'job' => 'TrafficFetchJob',
                 'user_count' => count($this->data),
                 'server_id' => $this->server['id'] ?? 'unknown',
                 'error' => $e->getMessage()
             ]);
-            throw $e; // 重新抛出异常，确保任务失败处理正常
+            
+            // 🛡️ 回退机制：管道失败时使用原始的单独操作方式
+            try {
+                foreach(array_keys($this->data) as $userId){
+                    $uploadTraffic = $this->data[$userId][0] * $this->server['rate'];
+                    $downloadTraffic = $this->data[$userId][1] * $this->server['rate'];
+                    
+                    Redis::hincrby('v2board_upload_traffic', $userId, $uploadTraffic);
+                    Redis::hincrby('v2board_download_traffic', $userId, $downloadTraffic);
+                }
+            } catch (\Exception $fallbackError) {
+                // 只有在回退操作也失败时才记录错误，但仍不抛出异常避免重试风暴
+                \Log::error('Redis操作完全失败', [
+                    'job' => 'TrafficFetchJob',
+                    'user_count' => count($this->data),
+                    'server_id' => $this->server['id'] ?? 'unknown',
+                    'pipeline_error' => $e->getMessage(),
+                    'fallback_error' => $fallbackError->getMessage()
+                ]);
+            }
         }
     }
 }
