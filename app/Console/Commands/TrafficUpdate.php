@@ -49,7 +49,17 @@ class TrafficUpdate extends Command
             return;
         }
 
-        $users = User::whereIn('id', array_keys($downloads))->get(['id', 'u', 'd']);
+        // 🛡️ 修复数据丢失问题：获取所有有流量的用户(上传+下载)
+        $allUserIds = array_unique(array_merge(array_keys($uploads), array_keys($downloads)));
+        if (empty($allUserIds)) {
+            return; // 没有用户数据，直接返回
+        }
+        $users = User::whereIn('id', $allUserIds)->get(['id', 'u', 'd']);
+        if ($users->isEmpty()) {
+            \Log::warning('流量更新：查询到的用户为空', ['user_ids' => $allUserIds]);
+            return; // 查询到的用户为空，直接返回
+        }
+        
         $time = time();
         $casesU = [];
         $casesD = [];
@@ -63,6 +73,13 @@ class TrafficUpdate extends Command
             $casesD[] = "WHEN {$user->id} THEN " . ($user->d + $download);
             $idList[] = $user->id;
         }
+        
+        // 🛡️ 额外安全检查：确保有数据要更新
+        if (empty($idList)) {
+            \Log::warning('流量更新：没有用户需要更新');
+            return;
+        }
+        
         $idListStr = implode(',', $idList);
         $casesUStr = implode(' ', $casesU);
         $casesDStr = implode(' ', $casesD);
@@ -71,9 +88,21 @@ class TrafficUpdate extends Command
             DB::beginTransaction();
             DB::statement($sql);
             DB::commit();
+            
+            // 📊 成功日志：记录更新统计
+            \Log::info('流量更新成功', [
+                'updated_users' => count($idList),
+                'total_upload_users' => count($uploads),
+                'total_download_users' => count($downloads),
+                'execution_time' => microtime(true) - ($_SERVER['REQUEST_TIME_FLOAT'] ?? microtime(true))
+            ]);
         } catch (\Exception $e) {
             DB::rollBack();
-            \Log::error('流量更新失败: ' . $e->getMessage());
+            \Log::error('流量更新失败', [
+                'error' => $e->getMessage(),
+                'user_count' => count($idList),
+                'sql_preview' => substr($sql, 0, 200) . '...'
+            ]);
             return;
         }
     }
