@@ -92,7 +92,7 @@ class UserController extends Controller
             //统计在线设备
             $countalive = 0;
             $ips = [];
-            $ips_array = Cache::get('ALIVE_IP_USER_'. $res[$i]['id']);
+            $ips_array = Cache::get('ALIVE_IP_USER_'. $res[$i]->id);
             if ($ips_array) {
                 $countalive = $ips_array['alive_ip'];
                 foreach($ips_array as $nodetypeid => $data) {
@@ -106,7 +106,7 @@ class UserController extends Controller
             }
             $res[$i]['alive_ip'] = $countalive;
             $res[$i]['ips'] = implode(', ', $ips);
-            $res[$i]['subscribe_url'] = Helper::getSubscribeUrl($res[$i]['token']);
+            $res[$i]['subscribe_url'] = Helper::getSubscribeUrl($res[$i]->token);
         }
         return response([
             'data' => $res,
