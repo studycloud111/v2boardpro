@@ -236,6 +236,18 @@ class OrderService
     
         $remainingTrafficRatio = ($totalTraffic - $usedTraffic) / $totalTraffic;
     
+        // 🛡️ 除零错误保护 - 确保订单时间范围有效
+        if ($orderRangeSecond <= 0) {
+            \Log::warning('Invalid order range second detected, skipping surplus calculation', [
+                'user_id' => $user->id,
+                'order_id' => $order->id ?? null,
+                'order_range_second' => $orderRangeSecond,
+                'expired_at_by_order' => $expiredAtByOrder,
+                'last_validate_at' => $lastValidateAt
+            ]);
+            return;
+        }
+        
         $avgPricePerSecond = $orderAmountSum / $orderRangeSecond;
         if ($orderRangeSecond <= 31 * 86400) {
             $remainingExpiredTimeRatio = $orderSurplusSecond / $orderRangeSecond;
@@ -243,6 +255,15 @@ class OrderService
             $orderSurplusAmount = $avgPricePerSecond * $orderSurplusSecond * $surplusRatio;
         } else {
             $monthSeconds = 30 * 86400;
+            
+            // 🛡️ 额外的安全检查 - 虽然monthSeconds是常量，但确保代码健壮性
+            if ($monthSeconds <= 0) {
+                \Log::error('Invalid month seconds detected', [
+                    'month_seconds' => $monthSeconds
+                ]);
+                return;
+            }
+            
             $firstMonthRemainSeconds = $orderSurplusSecond % $monthSeconds;
             $surplusRatio = min($firstMonthRemainSeconds / $monthSeconds, $remainingTrafficRatio);
             $laterMonthsSeconds = $orderSurplusSecond - $firstMonthRemainSeconds;
