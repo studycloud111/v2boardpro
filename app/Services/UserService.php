@@ -164,16 +164,16 @@ class UserService
 
     public function getDeviceLimitedUsers()
     {
-        // 🛠️ 修复在线用户检查逻辑：返回所有活跃用户，不仅仅是设置了设备限制的用户
-        // 原逻辑导致没有设备限制的用户在线状态无法正确显示
-        return User::whereRaw('u + d < transfer_enable')
-            ->where(function ($query) {
+        // 🛠️ 修复在线用户检查逻辑：在线状态检查不应受流量限制
+        // 即使用户流量用完，仍可能在线，应该显示其在线状态
+        return User::where(function ($query) {
                 $query->where('expired_at', '>=', time())
                 ->orWhereNull('expired_at');
             })
             ->where('banned', 0)
-            // 🚀 关键修复：移除device_limit限制，检查所有活跃用户的在线状态
-            // ->where('device_limit','>', 0) // 移除这个限制
+            // 🚀 关键修复：移除流量条件，在线状态检查不应受流量剩余影响
+            // 原条件 whereRaw('u + d < transfer_enable') 导致流量用完的在线用户被忽略
+            // ->whereRaw('u + d < transfer_enable') // 移除流量限制
             ->select('id')
             ->get();
     }
