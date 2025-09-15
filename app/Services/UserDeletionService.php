@@ -9,6 +9,7 @@ use App\Models\StatUser;
 use App\Models\Ticket;
 use App\Models\TicketMessage;
 use App\Models\User;
+use App\Services\AuthService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 

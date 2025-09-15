@@ -175,16 +175,19 @@ class UserController extends Controller
 
     public function dumpCSV(Request $request)
     {
-        $userModel = User::orderBy('id', 'asc');
+        // 🚀 性能优化：CSV导出也使用关联查询避免O(n²)问题
+        $userModel = User::with(['plan:id,name']) // 预加载计划信息
+            ->orderBy('id', 'asc');
         $this->filter($request, $userModel);
         $res = $userModel->get();
-        $plan = Plan::get();
+        
         for ($i = 0; $i < count($res); $i++) {
-            for ($k = 0; $k < count($plan); $k++) {
-                if ($plan[$k]['id'] == $res[$i]['plan_id']) {
-                    $res[$i]['plan_name'] = $plan[$k]['name'];
-                }
+            // ✅ 优化后：直接从关联关系获取计划名称，O(1)复杂度
+            if ($res[$i]->plan) {
+                $res[$i]['plan_name'] = $res[$i]->plan->name;
             }
+            // 🛡️ 兼容性保护：隐藏预加载的plan对象
+            $res[$i]->makeHidden(['plan']);
         }
 
         $data = "邮箱,余额,推广佣金,总流量,设备数限制,剩余流量,套餐到期时间,订阅计划,订阅地址\r\n";
