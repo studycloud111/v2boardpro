@@ -68,21 +68,22 @@ class UserController extends Controller
         $pageSize = $request->input('pageSize') >= 10 ? $request->input('pageSize') : 10;
         $sortType = in_array($request->input('sort_type'), ['ASC', 'DESC']) ? $request->input('sort_type') : 'DESC';
         $sort = $request->input('sort') ? $request->input('sort') : 'created_at';
-        $userModel = User::select(
-            DB::raw('*'),
-            DB::raw('(u+d) as total_used')
-        )
+        // 🚀 性能优化：使用关联查询替代O(n²)嵌套循环
+        $userModel = User::with(['plan:id,name']) // 预加载计划信息，避免N+1查询
+            ->select(
+                DB::raw('*'),
+                DB::raw('(u+d) as total_used')
+            )
             ->orderBy($sort, $sortType);
         $this->filter($request, $userModel);
         $total = $userModel->count();
         $res = $userModel->forPage($current, $pageSize)
             ->get();
-        $plan = Plan::get();
+            
         for ($i = 0; $i < count($res); $i++) {
-            for ($k = 0; $k < count($plan); $k++) {
-                if ($plan[$k]['id'] == $res[$i]['plan_id']) {
-                    $res[$i]['plan_name'] = $plan[$k]['name'];
-                }
+            // ✅ 优化后：直接从关联关系获取计划名称，O(1)复杂度
+            if ($res[$i]->plan) {
+                $res[$i]['plan_name'] = $res[$i]->plan->name;
             }
             //统计在线设备
             $countalive = 0;
