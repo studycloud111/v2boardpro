@@ -269,6 +269,110 @@ class UserController extends Controller
         return $this->redeemgiftcard($request);
     }
 
+    public function getGiftcardInfo(Request $request)
+    {
+        $giftcardCode = $request->input('code');
+        if (!$giftcardCode) {
+            abort(400, __('Gift card code is required'));
+        }
+
+        $giftcard = Giftcard::where('code', $giftcardCode)->first();
+        if (!$giftcard) {
+            abort(404, __('The gift card does not exist'));
+        }
+
+        // 检查礼品卡有效性（使用与兑换相同的逻辑）
+        $currentTime = time();
+        $isValid = true;
+        $message = '';
+
+        if ($giftcard->started_at && $currentTime < $giftcard->started_at) {
+            $isValid = false;
+            $message = __('The gift card is not yet valid');
+        } elseif ($giftcard->ended_at && $currentTime > $giftcard->ended_at) {
+            $isValid = false;
+            $message = __('The gift card has expired');
+        } elseif ($giftcard->limit_use !== null && (!is_numeric($giftcard->limit_use) || $giftcard->limit_use <= 0)) {
+            $isValid = false;
+            $message = __('The gift card usage limit has been reached');
+        }
+
+        // 检查用户是否已经使用过此礼品卡（与兑换功能保持一致）
+        $user = User::find($request->user['id']);
+        $alreadyUsed = DB::table('v2_giftcard_user')
+            ->where('giftcard_id', $giftcard->id)
+            ->where('user_id', $user->id)
+            ->exists();
+
+        if ($alreadyUsed) {
+            $isValid = false;
+            $message = __('The gift card has already been used by this user');
+        }
+
+        // 计算剩余使用次数
+        $remainingUses = null;
+        if ($giftcard->limit_use !== null) {
+            $remainingUses = max(0, $giftcard->limit_use);
+        }
+
+        // 格式化礼品卡类型和价值（与兑换功能保持一致）
+        $types = ['', '金额', '时长', '流量', '重置', '套餐'];
+        $type = $types[$giftcard->type] ?? '未知';
+        
+        $formattedValue = '';
+        switch ($giftcard->type) {
+            case 1: // 金额
+                $formattedValue = round($giftcard->value / 100, 2) . ' ' . config('v2board.currency_symbol', '¥');
+                break;
+            case 2: // 时长
+                $formattedValue = $giftcard->value . ' 天';
+                break;
+            case 3: // 流量
+                $formattedValue = $giftcard->value . ' GB';
+                break;
+            case 4: // 重置
+                $formattedValue = '重置套餐';
+                break;
+            case 5: // 套餐
+                // 检查是否符合使用条件（与兑换功能保持一致）
+                if ($user->plan_id == null || ($user->expired_at !== null && $user->expired_at < $currentTime)) {
+                    $plan = Plan::where('id', $giftcard->plan_id)->first();
+                    if ($plan) {
+                        if ($giftcard->value == 0) {
+                            $formattedValue = $plan->name . ' (永久)';
+                        } else {
+                            $formattedValue = $plan->name . ' (' . $giftcard->value . ' 天)';
+                        }
+                    } else {
+                        $isValid = false;
+                        $message = __('Not suitable gift card type');
+                    }
+                } else {
+                    $isValid = false;
+                    $message = __('Not suitable gift card type');
+                }
+                break;
+            default:
+                $formattedValue = $giftcard->value;
+        }
+
+        return response([
+            'data' => [
+                'name' => $giftcard->name,
+                'type' => $type,
+                'type_id' => $giftcard->type,
+                'value' => $giftcard->value,
+                'formatted_value' => $formattedValue,
+                'started_at' => $giftcard->started_at ? date('Y-m-d H:i:s', $giftcard->started_at) : null,
+                'ended_at' => $giftcard->ended_at ? date('Y-m-d H:i:s', $giftcard->ended_at) : null,
+                'remaining_uses' => $remainingUses,
+                'is_valid' => $isValid,
+                'message' => $message,
+                'already_used' => $alreadyUsed
+            ]
+        ]);
+    }
+
     public function info(Request $request)
     {
         $user = User::where('id', $request->user['id'])

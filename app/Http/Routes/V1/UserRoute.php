@@ -29,6 +29,7 @@ class UserRoute
             $router->get ('/info', [UserController::class, 'info']);
             $router->post('/newPeriod', [UserController::class, 'newPeriod']); // Added from upstream
             $router->post('/redeemgiftcard', [UserController::class, 'redeemgiftcard']);
+            $router->get ('/giftcard/info', [UserController::class, 'getGiftcardInfo']);
             $router->post('/changePassword', [UserController::class, 'changePassword']);
             $router->post('/update', [UserController::class, 'update']);
             $router->get ('/getSubscribe', [UserController::class, 'getSubscribe']);
