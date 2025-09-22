@@ -189,7 +189,9 @@ class UserController extends Controller
                 abort(500, __('The gift card has already been used by this user'));
             }
 
-            switch ($giftcard->type) {
+            // 强制转换为整数以确保类型一致性
+            $giftcardType = (int)$giftcard->type;
+            switch ($giftcardType) {
                 case 1:
                     $user->balance += $giftcard->value;
                     break;
@@ -212,21 +214,47 @@ class UserController extends Controller
                     $user->d = 0;
                     break;
                 case 5:
-                    if ($user->plan_id == null || ($user->expired_at !== null && $user->expired_at < $currentTime)) {
-                        $plan = Plan::where('id', $giftcard->plan_id)->first();
+                    // 套餐类礼品卡：智能处理 - 相同套餐延长时间，不同套餐覆盖
+                    if (!$giftcard->plan_id) {
+                        abort(500, __('Gift card plan ID is missing'));
+                    }
+                    
+                    $plan = Plan::where('id', $giftcard->plan_id)->first();
+                    if (!$plan) {
+                        abort(500, __('The plan associated with this gift card no longer exists'));
+                    }
+                    
+                    // 检查是否为相同套餐
+                    if ($user->plan_id == $giftcard->plan_id) {
+                        // 相同套餐：延长时间
+                        if ($giftcard->value > 0) {
+                            if ($user->expired_at !== null) {
+                                if ($user->expired_at <= $currentTime) {
+                                    // 套餐已过期，从当前时间开始计算
+                                    $user->expired_at = $currentTime + $giftcard->value * 86400;
+                                } else {
+                                    // 套餐未过期，在现有基础上延长
+                                    $user->expired_at += $giftcard->value * 86400;
+                                }
+                            } else {
+                                // 永久套餐保持永久
+                                $user->expired_at = null;
+                            }
+                        }
+                        // 相同套餐时不重置流量和其他设置，只延长时间
+                    } else {
+                        // 不同套餐：完全覆盖
                         $user->plan_id = $plan->id;
                         $user->group_id = $plan->group_id;
                         $user->transfer_enable = $plan->transfer_enable * 1073741824;
                         $user->device_limit = $plan->device_limit;
-                        $user->u = 0;
+                        $user->u = 0; // 重置已用流量
                         $user->d = 0;
                         if($giftcard->value == 0) {
-                            $user->expired_at = null;
+                            $user->expired_at = null; // 永久套餐
                         } else {
                             $user->expired_at = $currentTime + $giftcard->value * 86400;
                         }
-                    } else {
-                        abort(500, __('Not suitable gift card type'));
                     }
                     break;
                 default:
@@ -320,12 +348,20 @@ class UserController extends Controller
         $type = $types[$giftcard->type] ?? '未知';
         
         $formattedValue = '';
-        switch ($giftcard->type) {
+        // 强制转换为整数以确保类型一致性
+        $giftcardType = (int)$giftcard->type;
+        switch ($giftcardType) {
             case 1: // 金额
                 $formattedValue = round($giftcard->value / 100, 2) . ' ' . config('v2board.currency_symbol', '¥');
                 break;
             case 2: // 时长
-                $formattedValue = $giftcard->value . ' 天';
+                // 时长类礼品卡：需要有现有套餐才能延长
+                if ($user->expired_at === null) {
+                    $isValid = false;
+                    $message = __('Time gift cards require an existing plan');
+                } else {
+                    $formattedValue = $giftcard->value . ' 天';
+                }
                 break;
             case 3: // 流量
                 $formattedValue = $giftcard->value . ' GB';
@@ -334,22 +370,25 @@ class UserController extends Controller
                 $formattedValue = '重置套餐';
                 break;
             case 5: // 套餐
-                // 检查是否符合使用条件（与兑换功能保持一致）
-                if ($user->plan_id == null || ($user->expired_at !== null && $user->expired_at < $currentTime)) {
-                    $plan = Plan::where('id', $giftcard->plan_id)->first();
-                    if ($plan) {
-                        if ($giftcard->value == 0) {
-                            $formattedValue = $plan->name . ' (永久)';
-                        } else {
-                            $formattedValue = $plan->name . ' (' . $giftcard->value . ' 天)';
-                        }
+                // 套餐类礼品卡：直接覆盖当前套餐（与兑换功能保持一致）
+                if (!$giftcard->plan_id) {
+                    $isValid = false;
+                    $message = __('Gift card plan ID is missing') . " (plan_id: null)";
+                    break;
+                }
+                
+                $plan = Plan::where('id', $giftcard->plan_id)->first();
+                if ($plan) {
+                    if ($giftcard->value == 0) {
+                        $formattedValue = $plan->name . ' (永久)';
                     } else {
-                        $isValid = false;
-                        $message = __('Not suitable gift card type');
+                        $formattedValue = $plan->name . ' (' . $giftcard->value . ' 天)';
                     }
                 } else {
+                    // 获取所有可用套餐ID用于调试
+                    $availablePlanIds = Plan::pluck('id')->toArray();
                     $isValid = false;
-                    $message = __('Not suitable gift card type');
+                    $message = __('The plan associated with this gift card no longer exists') . " (plan_id: {$giftcard->plan_id}, available_ids: " . implode(',', $availablePlanIds) . ")";
                 }
                 break;
             default:
@@ -368,7 +407,8 @@ class UserController extends Controller
                 'remaining_uses' => $remainingUses,
                 'is_valid' => $isValid,
                 'message' => $message,
-                'already_used' => $alreadyUsed
+                'already_used' => $alreadyUsed,
+                'plan_id' => $giftcard->plan_id, // 套餐类礼品卡的套餐ID
             ]
         ]);
     }
