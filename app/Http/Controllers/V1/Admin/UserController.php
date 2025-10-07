@@ -36,6 +36,28 @@ class UserController extends Controller
 
     private function filter(Request $request, $builder)
     {
+        // 全局搜索：在多个字段中使用OR逻辑搜索
+        $globalSearch = $request->input('global_search');
+        if ($globalSearch) {
+            $builder->where(function($query) use ($globalSearch) {
+                // 搜索邮箱
+                $query->orWhere('email', 'like', "%{$globalSearch}%")
+                    // 搜索UUID
+                    ->orWhere('uuid', 'like', "%{$globalSearch}%")
+                    // 搜索TOKEN
+                    ->orWhere('token', 'like', "%{$globalSearch}%")
+                    // 搜索备注
+                    ->orWhere('remarks', 'like', "%{$globalSearch}%");
+                
+                // 如果是数字，搜索ID
+                if (is_numeric($globalSearch)) {
+                    $query->orWhere('id', '=', intval($globalSearch))
+                        // 搜索邀请人ID
+                        ->orWhere('invite_user_id', '=', intval($globalSearch));
+                }
+            });
+        }
+        
         $filters = $request->input('filter');
         if ($filters) {
             foreach ($filters as $k => $filter) {
