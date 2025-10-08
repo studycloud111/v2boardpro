@@ -36,6 +36,18 @@ class UserController extends Controller
 
     private function filter(Request $request, $builder)
     {
+        // 支持通过user_id列表查询（用于邀请排行榜等场景）
+        $userIds = $request->input('user_id');
+        if ($userIds) {
+            // 支持逗号分隔的ID列表或数组
+            if (is_string($userIds)) {
+                $userIds = explode(',', $userIds);
+            }
+            $userIds = array_map('intval', $userIds);
+            $builder->whereIn('id', $userIds);
+            return; // 使用ID列表查询时，忽略其他过滤条件
+        }
+        
         // 全局搜索：在多个字段中使用OR逻辑搜索
         $globalSearch = $request->input('global_search');
         if ($globalSearch) {
