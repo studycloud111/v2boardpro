@@ -30,4 +30,13 @@ class User extends Model
     {
         return $this->belongsTo(\App\Models\Plan::class, 'plan_id');
     }
+
+    /**
+     * 用户关联的邀请人
+     * 用于获取邀请人的邮箱等信息
+     */
+    public function inviter()
+    {
+        return $this->belongsTo(\App\Models\User::class, 'invite_user_id');
+    }
 }
