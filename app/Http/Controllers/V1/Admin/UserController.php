@@ -91,7 +91,10 @@ class UserController extends Controller
         $sortType = in_array($request->input('sort_type'), ['ASC', 'DESC']) ? $request->input('sort_type') : 'DESC';
         $sort = $request->input('sort') ? $request->input('sort') : 'created_at';
         // 🚀 性能优化：使用关联查询替代O(n²)嵌套循环
-        $userModel = User::with(['plan:id,name']) // 预加载计划信息，避免N+1查询
+        $userModel = User::with([
+            'plan:id,name', // 预加载计划信息，避免N+1查询
+            'inviter:id,email' // 预加载邀请人邮箱信息
+        ])
             ->select(
                 DB::raw('*'),
                 DB::raw('(u+d) as total_used')
@@ -109,8 +112,14 @@ class UserController extends Controller
             if ($res[$i]->plan) {
                 $res[$i]['plan_name'] = $res[$i]->plan->name;
             }
-            // 🛡️ 兼容性保护：确保API返回格式完全一致，隐藏预加载的plan对象
-            $res[$i]->makeHidden(['plan']);
+            // ✅ 获取邀请人邮箱信息
+            if ($res[$i]->inviter) {
+                $res[$i]['invite_user'] = [
+                    'email' => $res[$i]->inviter->email
+                ];
+            }
+            // 🛡️ 兼容性保护：确保API返回格式完全一致，隐藏预加载的关系对象
+            $res[$i]->makeHidden(['plan', 'inviter']);
             //统计在线设备
             $countalive = 0;
             $ips = [];
